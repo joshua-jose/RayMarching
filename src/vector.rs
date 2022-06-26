@@ -9,11 +9,6 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    /// Creates a new [`Vec3`].
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z }
-    }
-
     /// Returns the mag of this [`Vec3`].
     pub fn mag(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
