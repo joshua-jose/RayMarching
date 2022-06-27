@@ -16,8 +16,8 @@ impl Vec3 {
 
     /// Returns the normalized vector of this [`Vec3`].
     pub fn normalized(&self) -> Vec3 {
-        let mag = self.mag();
-        *self * mag.recip()
+        let inv_mag = self.mag().recip();
+        *self * inv_mag
     }
 
     pub fn dot(&self, other: Vec3) -> f32 {

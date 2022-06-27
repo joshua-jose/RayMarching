@@ -8,3 +8,6 @@ edition = "2018"
 
 [dependencies]
 sdl2 = "0.35"
+
+[profile.release]
+panic = "abort"

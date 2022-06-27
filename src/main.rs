@@ -1,9 +1,11 @@
 mod engine;
+mod objects;
 mod vector;
 
 extern crate sdl2;
 
 use engine::{Engine, HEIGHT, WIDTH};
+use objects::{Sphere, YPlane};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use vector::Vec3;
@@ -35,7 +37,7 @@ fn main() {
 
     let mut engine = Engine {
         objects: vec![
-            &engine::Sphere {
+            &Sphere {
                 position: Vec3 {
                     x: 0.0,
                     y: 0.0,
@@ -43,7 +45,7 @@ fn main() {
                 },
                 radius: 1.0,
             },
-            &engine::YPlane { y: -2.0 },
+            &YPlane { y: -2.0 },
         ],
         camera_position: Vec3 {
             x: 0.0,

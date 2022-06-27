@@ -1,55 +1,23 @@
+use super::objects::HasDistanceFunction;
 use super::vector::Vec3;
 
-pub const WIDTH: usize = 600;
-pub const HEIGHT: usize = 600;
+pub const WIDTH: usize = 400;
+pub const HEIGHT: usize = 400;
 
 type ObjectRef<'a> = &'a dyn HasDistanceFunction;
-
-pub trait HasDistanceFunction {
-    fn sdf(&self, position: Vec3) -> f32;
-}
-
-#[derive(Clone, Copy)]
-pub struct Sphere {
-    pub position: Vec3,
-    pub radius: f32,
-}
-
-impl HasDistanceFunction for Sphere {
-    fn sdf(&self, position: Vec3) -> f32 {
-        (position - self.position).mag() - self.radius
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct YPlane {
-    pub y: f32,
-}
-
-impl HasDistanceFunction for YPlane {
-    fn sdf(&self, position: Vec3) -> f32 {
-        position.y - self.y
-    }
-}
-
-pub struct Engine<'a> {
-    pub objects: Vec<&'a dyn HasDistanceFunction>,
-    pub camera_position: Vec3,
-}
-
-struct Ray {
-    pub position: Vec3,
-    pub direction: Vec3,
-}
 
 static mut N: i32 = 0;
 
 impl Engine<'_> {
     pub fn render(&mut self, buffer: &mut [u8], _width: usize) {
+        let zoffset: f32;
+        let xoffset: f32;
         unsafe {
             N += 1;
-            self.camera_position.y = 2.0 + 3.0 * (0.1 * N as f32).sin();
-            self.camera_position.x = 2.0 * (0.1 * N as f32).cos();
+            //self.camera_position.y = 2.0 + 3.0 * (0.1 * N as f32).sin();
+            //self.camera_position.x = 2.0 * (0.1 * N as f32).cos();
+            zoffset = 3.0 + 6.0 * (0.1 * N as f32).sin();
+            xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
         }
 
         for y_inv in 0..HEIGHT {
@@ -72,11 +40,45 @@ impl Engine<'_> {
 
                 if object.is_some() {
                     let n = Engine::calculate_normal(ray.position, object.unwrap());
-                    let diffuse = (LIGHT_POS - ray.position).normalized().dot(n).max(0.05);
 
-                    r = (255.0 * diffuse).floor() as u8;
-                    g = (255.0 * diffuse).floor() as u8;
-                    b = (255.0 * diffuse).floor() as u8;
+                    let vector_to_light = (LIGHT_POS
+                        + Vec3 {
+                            x: xoffset,
+                            y: 0.0,
+                            z: zoffset,
+                        })
+                        - ray.position;
+                    let distance_to_light = vector_to_light.mag();
+                    let vector_to_light = vector_to_light.normalized();
+
+                    let light_intensity = 50.0 * distance_to_light.powi(2).recip();
+
+                    let mut light_ray = Ray {
+                        position: ray.position + (vector_to_light * 0.002),
+                        direction: vector_to_light,
+                    };
+                    let light_intersection = self.march(&mut light_ray);
+                    let diffuse: f32;
+                    match light_intersection {
+                        Some(o) => {
+                            if !std::ptr::eq(o, object.unwrap()) {
+                                diffuse = 0.05 * vector_to_light.dot(n);
+                            } else {
+                                diffuse = light_intensity * vector_to_light.dot(n).max(0.05);
+                            }
+                        }
+                        None => diffuse = light_intensity * vector_to_light.dot(n).max(0.05),
+                    }
+
+                    if std::ptr::eq(self.objects[0], object.unwrap()) {
+                        r = (245.0 * diffuse).floor() as u8;
+                        g = (104.0 * diffuse).floor() as u8;
+                        b = (44.0 * diffuse).floor() as u8;
+                    } else {
+                        r = (138.0 * diffuse).floor() as u8;
+                        g = (245.0 * diffuse).floor() as u8;
+                        b = (44.0 * diffuse).floor() as u8;
+                    }
                 }
 
                 buffer[i * 4 + 0] = b;
@@ -126,6 +128,16 @@ impl Engine<'_> {
         }
         return None;
     }
+}
+
+pub struct Engine<'a> {
+    pub objects: Vec<&'a dyn HasDistanceFunction>,
+    pub camera_position: Vec3,
+}
+
+struct Ray {
+    pub position: Vec3,
+    pub direction: Vec3,
 }
 
 const STEP_SIZE: f32 = 0.0001;
