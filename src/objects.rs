@@ -3,6 +3,7 @@ use super::vector::Vec3;
 pub trait EngineObject {
     fn sdf(&self, position: Vec3) -> f32;
     fn colour(&self, position: Vec3) -> [u8; 3];
+    fn reflectivity(&self) -> u8;
 }
 
 impl EngineObject for Sphere {
@@ -13,6 +14,10 @@ impl EngineObject for Sphere {
 
     fn colour(&self, _position: Vec3) -> [u8; 3] {
         [245, 104, 44]
+    }
+
+    fn reflectivity(&self) -> u8 {
+        255
     }
 }
 
@@ -34,10 +39,14 @@ impl EngineObject for YPlane {
     }
 
     fn colour(&self, position: Vec3) -> [u8; 3] {
-        [
-            40 * position.x.round().abs() as u8,
-            40 * position.z.round().abs() as u8,
-            44,
-        ]
+        if (position.x.round() as i32) % 2 == 0 || (position.z.round() as i32) % 2 == 0 {
+            [102, 245, 66]
+        } else {
+            [2, 105, 240]
+        }
+    }
+
+    fn reflectivity(&self) -> u8 {
+        0
     }
 }

@@ -1,8 +1,8 @@
 use super::objects::EngineObject;
 use super::vector::Vec3;
 
-pub const WIDTH: usize = 400;
-pub const HEIGHT: usize = 400;
+pub const WIDTH: usize = 800;
+pub const HEIGHT: usize = 800;
 
 type ObjectRef<'a> = &'a dyn EngineObject;
 
@@ -23,23 +23,11 @@ impl Engine<'_> {
                 let u = ((2 * x) as f32 / WIDTH as f32) - 1.0;
                 let v = ((2 * y) as f32 / HEIGHT as f32) - 1.0;
                 let i = y_inv * WIDTH + x;
-                let colour: [u8; 3];
 
-                // sight ray from camera
-                let mut ray = Ray {
-                    position: self.camera_position,
-                    direction: Vec3 { x: u, y: v, z: 1.0 }.normalized(),
-                };
-                // object the sight ray hit
-                let object = self.march(&mut ray);
-
-                // if we hit an object, colour this pixel
-                if object.is_some() {
-                    colour = self.object_pixel_colour(object.unwrap(), ray.position);
-                } else {
-                    // sky colour
-                    colour = [135, 206, 235];
-                }
+                let colour: [u8; 3] = self.cast_sight_ray(
+                    self.camera_position,
+                    Vec3 { x: u, y: v, z: 1.0 }.normalized(),
+                );
 
                 buffer[i * 4 + 0] = colour[2];
                 buffer[i * 4 + 1] = colour[1];
@@ -49,7 +37,27 @@ impl Engine<'_> {
         }
     }
 
-    fn object_pixel_colour(&self, object: ObjectRef, position: Vec3) -> [u8; 3] {
+    fn cast_sight_ray(&self, position: Vec3, direction: Vec3) -> [u8; 3] {
+        let colour: [u8; 3];
+
+        let mut ray = Ray {
+            position: position,
+            direction: direction,
+        };
+        // object the sight ray hit
+        let object = self.march(&mut ray);
+
+        // if we hit an object, colour this pixel
+        if object.is_some() {
+            colour = self.object_pixel_colour(object.unwrap(), ray.position, direction);
+        } else {
+            // sky colour
+            colour = [135, 206, 235];
+        }
+        colour
+    }
+
+    fn object_pixel_colour(&self, object: ObjectRef, position: Vec3, direction: Vec3) -> [u8; 3] {
         let n = Engine::calculate_normal(position, object);
         let r;
         let g;
@@ -62,36 +70,56 @@ impl Engine<'_> {
             xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
         }
 
-        let vector_to_light = (LIGHT_POS
-            + Vec3 {
-                x: xoffset,
-                y: 0.0,
-                z: zoffset,
-            })
-            - position;
-
-        let distance_to_light = vector_to_light.mag();
-        let vector_to_light = vector_to_light.normalized();
-
-        let light_intensity = 50.0 * distance_to_light.powi(2).recip();
-
-        let mut light_ray = Ray {
-            position: position,
-            direction: vector_to_light,
-        };
-        let light_intersection = self.march_light(&mut light_ray, object);
-        let diffuse: f32;
-
-        match light_intersection {
-            Some(_) => diffuse = 0.05 * vector_to_light.dot(n),
-            None => diffuse = light_intensity * vector_to_light.dot(n).max(0.05),
-        }
-
         let object_colour = object.colour(position);
 
-        r = (object_colour[0] as f32 * diffuse).floor() as u8;
-        g = (object_colour[1] as f32 * diffuse).floor() as u8;
-        b = (object_colour[2] as f32 * diffuse).floor() as u8;
+        if object.reflectivity() == 0 {
+            let vector_to_light = (LIGHT_POS
+                + Vec3 {
+                    x: xoffset,
+                    y: 0.0,
+                    z: zoffset,
+                })
+                - position;
+
+            let distance_to_light = vector_to_light.mag();
+            let vector_to_light = vector_to_light.normalized();
+
+            let light_intensity = 50.0 * distance_to_light.powi(2).recip();
+
+            let mut light_ray = Ray {
+                position: position,
+                direction: vector_to_light,
+            };
+            let light_intersection = self.march_light(&mut light_ray, object);
+            let diffuse: f32;
+
+            match light_intersection {
+                Some(_) => diffuse = 0.05 * vector_to_light.dot(n),
+                None => diffuse = light_intensity * vector_to_light.dot(n).max(0.05),
+            }
+
+            r = (object_colour[0] as f32 * diffuse).floor() as u8;
+            g = (object_colour[1] as f32 * diffuse).floor() as u8;
+            b = (object_colour[2] as f32 * diffuse).floor() as u8;
+        } else {
+            let vector_to_light = (LIGHT_POS
+                + Vec3 {
+                    x: xoffset,
+                    y: 0.0,
+                    z: zoffset,
+                })
+                - position;
+
+            let vector_to_light = vector_to_light.normalized();
+
+            let reflection_vector = direction - n * 2.0 * (n.dot(direction));
+            let reflection_colour =
+                self.cast_sight_ray(position + (reflection_vector * 0.002), reflection_vector);
+
+            r = (vector_to_light.dot(n).max(0.5) * 0.8 * reflection_colour[0] as f32).round() as u8;
+            g = (vector_to_light.dot(n).max(0.5) * 0.8 * reflection_colour[1] as f32).round() as u8;
+            b = (vector_to_light.dot(n).max(0.5) * 0.8 * reflection_colour[2] as f32).round() as u8;
+        }
         [r, g, b]
     }
 
