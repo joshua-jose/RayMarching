@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Vec3 {
@@ -14,6 +14,10 @@ impl Vec3 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
+    pub fn mag_sqd(&self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
     /// Returns the normalized vector of this [`Vec3`].
     pub fn normalized(&self) -> Vec3 {
         let inv_mag = self.mag().recip();
@@ -22,6 +26,10 @@ impl Vec3 {
 
     pub fn dot(&self, other: Vec3) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
+    }
+
+    pub fn reflect(&self, normal: Vec3) -> Vec3 {
+        *self - normal * (2.0 * normal.dot(*self))
     }
 }
 
@@ -76,5 +84,21 @@ impl Div<f32> for Vec3 {
             y: self.y / rhs,
             z: self.z / rhs,
         }
+    }
+}
+
+impl Neg for Vec3 {
+    type Output = Vec3;
+
+    fn neg(self) -> Self::Output {
+        -1.0 * self
+    }
+}
+
+impl Mul<Vec3> for f32 {
+    type Output = Vec3;
+
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        rhs * self
     }
 }

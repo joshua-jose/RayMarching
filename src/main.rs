@@ -5,7 +5,7 @@ mod vector;
 extern crate sdl2;
 
 use engine::{Engine, HEIGHT, WIDTH};
-use objects::{Sphere, YPlane};
+use objects::{PointLight, Sphere, YPlane};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use vector::Vec3;
@@ -51,6 +51,14 @@ fn main() {
             x: 0.0,
             y: 0.0,
             z: -5.0,
+        },
+        light: PointLight {
+            position: Vec3 {
+                x: -5.0,
+                y: 5.0,
+                z: -5.0,
+            },
+            intensity: 50.0,
         },
     };
 

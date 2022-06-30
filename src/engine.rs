@@ -1,4 +1,4 @@
-use super::objects::EngineObject;
+use super::objects::{EngineLight, EngineObject, PointLight};
 use super::vector::Vec3;
 
 pub const WIDTH: usize = 400;
@@ -10,11 +10,26 @@ static mut N: i32 = 0;
 
 impl Engine<'_> {
     pub fn render(&mut self, buffer: &mut [u8], _width: usize) {
+        let zoffset: f32;
+        let xoffset: f32;
         unsafe {
             N += 1;
             //self.camera_position.y = 2.0 + 3.0 * (0.01 * N as f32).sin();
             //self.camera_position.x = 2.0 * (0.01 * N as f32).cos();
+
+            zoffset = 3.0 + 6.0 * (0.1 * N as f32).sin();
+            xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
         }
+
+        self.light.position = Vec3 {
+            x: -5.0,
+            y: 5.0,
+            z: -5.0,
+        } + Vec3 {
+            x: xoffset,
+            y: 0.0,
+            z: zoffset,
+        };
 
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -59,58 +74,68 @@ impl Engine<'_> {
     }
 
     fn shade_object(&self, object: ObjectRef, position: Vec3, direction: Vec3) -> [u8; 3] {
-        let n = Engine::calculate_normal(position, object);
-        let r: f32;
-        let g: f32;
-        let b: f32;
+        let mut r: f32;
+        let mut g: f32;
+        let mut b: f32;
 
-        let zoffset: f32;
-        let xoffset: f32;
-        unsafe {
-            zoffset = 3.0 + 6.0 * (0.1 * N as f32).sin();
-            xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
-        }
+        let diffuse: f32;
+        let ambient: f32 = object.ambient();
+        let specular: f32;
 
+        let n = Engine::calculate_normal(position, object); // normal vector
         let object_colour = object.colour(position);
 
-        let vector_to_light = (LIGHT_POS
-            + Vec3 {
-                x: xoffset,
-                y: 0.0,
-                z: zoffset,
-            })
-            - position;
+        let vector_to_light = self.light.get_position() - position;
 
-        let distance_to_light = vector_to_light.mag();
-        let vector_to_light = vector_to_light.normalized();
-        let light_intensity = 50.0 * distance_to_light.powi(2).recip();
+        let distance_to_light_sqd = vector_to_light.mag_sqd();
+        let vector_to_light = vector_to_light / distance_to_light_sqd.sqrt();
+        let light_reflection_vector = (-vector_to_light).reflect(n);
+        let light_intensity = self.light.get_intensity() / distance_to_light_sqd; // k/d^2
 
-        let mut light_ray = Ray {
+        // cast a shadow ray to see if this point is blocked by another object
+        let mut shadow_ray = Ray {
             position,
             direction: vector_to_light,
         };
-        let light_intersection = self.march(&mut light_ray, Some(object));
-        let diffuse: f32;
-        let ambient: f32 = 0.03;
+        let light_intersection = self.march(&mut shadow_ray, Some(object));
 
+        // if this point is blocked by some other object, do not light it.
         match light_intersection {
-            Some(_) => diffuse = 0.0,
-            None => diffuse = light_intensity * vector_to_light.dot(n).max(0.0),
+            Some(_) => {
+                diffuse = 0.0;
+                specular = 0.0;
+            }
+            None => {
+                // Phong shading algorithm
+                diffuse = object.diffuse() * light_intensity * vector_to_light.dot(n).max(0.0);
+                if diffuse > 0.0 {
+                    specular = object.specular()
+                        * light_intensity
+                        * light_reflection_vector
+                            .dot(-direction)
+                            .max(0.0)
+                            .powf(object.shininess());
+                } else {
+                    specular = 0.0;
+                }
+            }
         }
 
-        if object.reflectivity() == 0 {
-            r = object_colour[0] as f32 * (diffuse + ambient);
-            g = object_colour[1] as f32 * (diffuse + ambient);
-            b = object_colour[2] as f32 * (diffuse + ambient);
-        } else {
-            let reflection_vector = direction - n * (2.0 * n.dot(direction));
+        r = object_colour[0] as f32 * (diffuse + ambient + specular);
+        g = object_colour[1] as f32 * (diffuse + ambient + specular);
+        b = object_colour[2] as f32 * (diffuse + ambient + specular);
+
+        // if the object is reflective, cast a reflection ray
+        if object.reflectivity() > 1e-3 {
+            let reflection_vector = direction.reflect(n);
             let reflection_colour =
                 self.cast_sight_ray(position + (reflection_vector * 0.002), reflection_vector);
 
-            r = vector_to_light.dot(n).max(0.9) * reflection_colour[0] as f32;
-            g = vector_to_light.dot(n).max(0.9) * reflection_colour[1] as f32;
-            b = vector_to_light.dot(n).max(0.9) * reflection_colour[2] as f32;
+            r += 0.9 * reflection_colour[0] as f32;
+            g += 0.9 * reflection_colour[1] as f32;
+            b += 0.9 * reflection_colour[2] as f32;
         }
+
         [r.round() as u8, g.round() as u8, b.round() as u8]
     }
 
@@ -161,6 +186,7 @@ impl Engine<'_> {
 pub struct Engine<'a> {
     pub objects: Vec<ObjectRef<'a>>,
     pub camera_position: Vec3,
+    pub light: PointLight,
 }
 
 struct Ray {
@@ -183,12 +209,6 @@ const Z_STEP: Vec3 = Vec3 {
     x: 0.0,
     y: 0.0,
     z: STEP_SIZE,
-};
-
-const LIGHT_POS: Vec3 = Vec3 {
-    x: -5.0,
-    y: 5.0,
-    z: -5.0,
 };
 
 const MAX_MARCH_DISTANCE: f32 = 50.0;
