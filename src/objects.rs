@@ -2,7 +2,7 @@ use super::vector::Vec3;
 
 pub trait EngineObject {
     fn sdf(&self, position: Vec3) -> f32;
-    fn colour(&self, position: Vec3) -> [u8; 3];
+    fn colour(&self, position: Vec3) -> [f32; 3];
 
     fn diffuse(&self) -> f32 {
         1.0
@@ -40,6 +40,16 @@ pub struct YPlane {
 }
 
 #[derive(Clone, Copy)]
+pub struct XPlane {
+    pub x: f32,
+}
+
+#[derive(Clone, Copy)]
+pub struct ZPlane {
+    pub z: f32,
+}
+
+#[derive(Clone, Copy)]
 pub struct PointLight {
     pub position: Vec3,
     pub intensity: f32,
@@ -51,16 +61,12 @@ impl EngineObject for YPlane {
         position.y - self.y
     }
 
-    fn colour(&self, position: Vec3) -> [u8; 3] {
+    fn colour(&self, position: Vec3) -> [f32; 3] {
         if (position.x.round() as i32) % 2 == 0 || (position.z.round() as i32) % 2 == 0 {
-            [102, 245, 66]
+            rgb![168, 250, 138]
         } else {
-            [2, 105, 240]
+            rgb![28, 170, 248]
         }
-    }
-
-    fn reflectivity(&self) -> f32 {
-        0.0
     }
 }
 
@@ -70,12 +76,12 @@ impl EngineObject for Sphere {
         (position - self.position).mag() - self.radius
     }
 
-    fn colour(&self, _position: Vec3) -> [u8; 3] {
-        [255, 255, 255]
+    fn colour(&self, _position: Vec3) -> [f32; 3] {
+        rgb![255, 255, 255]
     }
 
     fn reflectivity(&self) -> f32 {
-        1.0
+        0.9
     }
 
     fn diffuse(&self) -> f32 {

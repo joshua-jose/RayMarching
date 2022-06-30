@@ -1,3 +1,5 @@
+#[macro_use]
+mod colour;
 mod engine;
 mod objects;
 mod vector;
