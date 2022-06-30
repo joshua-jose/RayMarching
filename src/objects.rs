@@ -3,8 +3,19 @@ use super::vector::Vec3;
 pub trait EngineObject {
     fn sdf(&self, position: Vec3) -> f32;
     fn colour(&self, position: Vec3) -> [u8; 3];
-    fn reflectivity(&self) -> u8;
+
+    fn diffuse(&self) -> u8 {
+        255
+    }
+    fn specular(&self) -> u8 {
+        255
+    }
+    fn reflectivity(&self) -> u8 {
+        0
+    }
 }
+
+pub trait EngineLight {}
 
 impl EngineObject for Sphere {
     #[inline(always)]
