@@ -70,6 +70,16 @@ impl EngineObject for YPlane {
     }
 }
 
+// box
+/*
+let p = Vec3 {
+    x: position.x.abs(),
+    y: position.y.abs(),
+    z: position.z.abs(),
+};
+p.x.max(p.y.max(p.z)) - 1.0 + p.dot(p) * 0.2
+*/
+
 impl EngineObject for Sphere {
     #[inline(always)]
     fn sdf(&self, position: Vec3) -> f32 {
@@ -81,7 +91,7 @@ impl EngineObject for Sphere {
     }
 
     fn reflectivity(&self) -> f32 {
-        0.9
+        1.0
     }
 
     fn diffuse(&self) -> f32 {
