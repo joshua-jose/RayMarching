@@ -1,8 +1,8 @@
 use super::objects::{EngineLight, EngineObject, PointLight};
 use super::vector::Vec3;
 
-pub const WIDTH: usize = 400;
-pub const HEIGHT: usize = 400;
+pub const WIDTH: usize = 900;
+pub const HEIGHT: usize = 900;
 
 type ObjectRef<'a> = &'a dyn EngineObject;
 
@@ -17,10 +17,10 @@ impl Engine<'_> {
             //self.camera_position.y = 2.0 + 3.0 * (0.01 * N as f32).sin();
             //self.camera_position.x = 2.0 * (0.01 * N as f32).cos();
 
-            //zoffset = 3.0 + 6.0 * (0.1 * N as f32).sin();
-            //xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
-            zoffset = 0.0;
-            xoffset = 0.0;
+            zoffset = 3.0 + 6.0 * (0.1 * N as f32).sin();
+            xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
+            //zoffset = 0.0;
+            //xoffset = 0.0;
         }
 
         self.light.position = Vec3 {
@@ -98,31 +98,12 @@ impl Engine<'_> {
         let light_intensity = self.light.get_intensity() / distance_to_light_sqd; // k/d^2
 
         // cast a shadow ray to see if this point is blocked by another object
-        //let light_blocked;
         let mut shadow_ray = Ray {
             position,
             direction: vector_to_light,
         };
-        //let light_intersection = self.march(&mut shadow_ray, Some(object));
         let shade = self.smooth_shadow_march(&mut shadow_ray, object, distance_to_light, 16.0);
 
-        // if light source is closer than the hit world object, then there is a line of sight
-        /*
-        match light_intersection {
-            None => light_blocked = false,
-            Some(_) => {
-                light_blocked = distance_to_light_sqd > (shadow_ray.position - position).mag_sqd();
-            }
-        }
-        */
-
-        // if this point is blocked by some other object, do not light it.
-        /*
-        if light_blocked {
-            diffuse = 0.0;
-            specular = 0.0;
-        } else {
-            */
         // Phong shading algorithm
         diffuse = shade * object.diffuse() * light_intensity * vector_to_light.dot(n).max(0.0);
         if diffuse > 0.0 {

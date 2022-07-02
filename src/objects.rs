@@ -37,16 +37,19 @@ pub struct Sphere {
 #[derive(Clone, Copy)]
 pub struct YPlane {
     pub y: f32,
+    pub dir: f32,
 }
 
 #[derive(Clone, Copy)]
 pub struct XPlane {
     pub x: f32,
+    pub dir: f32,
 }
 
 #[derive(Clone, Copy)]
 pub struct ZPlane {
     pub z: f32,
+    pub dir: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -56,9 +59,8 @@ pub struct PointLight {
 }
 
 impl EngineObject for YPlane {
-    #[inline(never)]
     fn sdf(&self, position: Vec3) -> f32 {
-        position.y - self.y
+        self.dir * (position.y - self.y)
     }
 
     fn colour(&self, position: Vec3) -> [f32; 3] {
@@ -67,6 +69,26 @@ impl EngineObject for YPlane {
         } else {
             rgb![28, 170, 248]
         }
+    }
+}
+
+impl EngineObject for XPlane {
+    fn sdf(&self, position: Vec3) -> f32 {
+        self.dir * (position.x - self.x)
+    }
+
+    fn colour(&self, _position: Vec3) -> [f32; 3] {
+        rgb![255, 40, 40]
+    }
+}
+
+impl EngineObject for ZPlane {
+    fn sdf(&self, position: Vec3) -> f32 {
+        self.dir * (position.z - self.z)
+    }
+
+    fn colour(&self, _position: Vec3) -> [f32; 3] {
+        rgb![40, 40, 255]
     }
 }
 
@@ -81,7 +103,6 @@ p.x.max(p.y.max(p.z)) - 1.0 + p.dot(p) * 0.2
 */
 
 impl EngineObject for Sphere {
-    #[inline(always)]
     fn sdf(&self, position: Vec3) -> f32 {
         (position - self.position).mag() - self.radius
     }

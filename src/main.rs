@@ -7,7 +7,7 @@ mod vector;
 extern crate sdl2;
 
 use engine::{Engine, HEIGHT, WIDTH};
-use objects::{PointLight, Sphere, YPlane};
+use objects::{PointLight, Sphere, XPlane, YPlane, ZPlane};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use vector::Vec3;
@@ -47,7 +47,12 @@ fn main() {
                 },
                 radius: 1.0,
             },
-            &YPlane { y: -2.0 },
+            &YPlane { y: -2.0, dir: 1.0 },
+            &YPlane { y: 15.0, dir: -1.0 },
+            &XPlane { x: -10.0, dir: 1.0 },
+            &XPlane { x: 10.0, dir: -1.0 },
+            &ZPlane { z: 20.0, dir: -1.0 },
+            &ZPlane { z: -20.0, dir: 1.0 },
         ],
         camera_position: Vec3 {
             x: 0.0,
