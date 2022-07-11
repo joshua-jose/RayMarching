@@ -2,6 +2,7 @@ use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Debug, Default, Clone, Copy)]
+#[repr(C)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -9,6 +10,10 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    pub const fn new(x: f32, y: f32, z: f32) -> Self {
+        Self { x, y, z }
+    }
+
     /// Returns the mag of this [`Vec3`].
     pub fn mag(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
@@ -91,7 +96,7 @@ impl Neg for Vec3 {
     type Output = Vec3;
 
     fn neg(self) -> Self::Output {
-        -1.0 * self
+        self * -1.0
     }
 }
 

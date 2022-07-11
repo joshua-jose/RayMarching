@@ -1,8 +1,9 @@
 use super::vector::Vec3;
+use Vec3 as Colour;
 
 pub trait EngineObject {
     fn sdf(&self, position: Vec3) -> f32;
-    fn colour(&self, position: Vec3) -> [f32; 3];
+    fn colour(&self, position: Vec3) -> Colour;
 
     fn diffuse(&self) -> f32 {
         1.0
@@ -58,17 +59,18 @@ pub struct PointLight {
     pub intensity: f32,
 }
 
+const WHITE: Colour = rgb![255, 255, 255];
+const SOFT_RED: Colour = rgb![214, 81, 81];
+const SOFT_GREEN: Colour = rgb![81, 214, 81];
+const SOFT_GRAY: Colour = rgb![214, 214, 214];
+
 impl EngineObject for YPlane {
     fn sdf(&self, position: Vec3) -> f32 {
         self.dir * (position.y - self.y)
     }
 
-    fn colour(&self, position: Vec3) -> [f32; 3] {
-        if (position.x.round() as i32) % 2 == 0 || (position.z.round() as i32) % 2 == 0 {
-            rgb![168, 250, 138]
-        } else {
-            rgb![28, 170, 248]
-        }
+    fn colour(&self, _position: Vec3) -> Colour {
+        rgb![179, 179, 179]
     }
 }
 
@@ -77,8 +79,12 @@ impl EngineObject for XPlane {
         self.dir * (position.x - self.x)
     }
 
-    fn colour(&self, _position: Vec3) -> [f32; 3] {
-        rgb![255, 40, 40]
+    fn colour(&self, position: Vec3) -> Colour {
+        if position.x < 0.0 {
+            SOFT_RED
+        } else {
+            SOFT_GREEN
+        }
     }
 }
 
@@ -87,8 +93,8 @@ impl EngineObject for ZPlane {
         self.dir * (position.z - self.z)
     }
 
-    fn colour(&self, _position: Vec3) -> [f32; 3] {
-        rgb![40, 40, 255]
+    fn colour(&self, _position: Vec3) -> Colour {
+        SOFT_GRAY
     }
 }
 
@@ -107,8 +113,8 @@ impl EngineObject for Sphere {
         (position - self.position).mag() - self.radius
     }
 
-    fn colour(&self, _position: Vec3) -> [f32; 3] {
-        rgb![255, 255, 255]
+    fn colour(&self, _position: Vec3) -> Colour {
+        WHITE
     }
 
     fn reflectivity(&self) -> f32 {
