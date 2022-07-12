@@ -58,6 +58,26 @@ impl Engine<'_> {
                 let v = ((2 * y) as f32 / HEIGHT as f32) - 1.0;
                 let i = y_inv * WIDTH + x;
 
+                /*
+                let mut colours: [Vec3; 5] = [Default::default(); 5];
+                let offsets: [Vec3; 5] = [
+                    Vec3::new(0.5 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
+                    Vec3::new(-0.5 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
+                    Vec3::new(0.0 / WIDTH as f32, 0.5 / HEIGHT as f32, 0.0),
+                    Vec3::new(0.0 / WIDTH as f32, -0.5 / HEIGHT as f32, 0.0),
+                    Vec3::new(0.0 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
+                ];
+                for i in 0..5 {
+                    colours[i] = self.cast_sight_ray(
+                        self.camera_position,
+                        (Vec3 { x: u, y: v, z: 1.0 } + offsets[i]).normalized(),
+                    );
+                }
+                let colour_linear =
+                    (colours[0] + colours[1] + colours[2] + colours[3] + colours[4]) / 5.0;
+
+                */
+
                 let colour_linear: Colour = self.cast_sight_ray(
                     self.camera_position,
                     (Vec3 { x: u, y: v, z: 1.0 }).normalized(),
@@ -155,13 +175,25 @@ impl Engine<'_> {
 
         // if the object is reflective, cast a reflection ray
         if object.reflectivity() > 1e-3 {
+            // very cheap fresnel effect
+            let fresnel = (1.0 - n.dot(-direction)).clamp(0.0, 1.0).powi(5);
+
             let reflection_vector = direction.reflect(n);
             let reflection_colour = self.cast_sight_ray(
                 position + (reflection_vector * 2.0 * SMALL_DISTANCE),
                 reflection_vector,
             );
 
-            final_colour = final_colour + (object.reflectivity() * reflection_colour);
+            /*
+            final_colour = final_colour
+                + object.reflectivity()
+                    * (object.reflectivity() * reflection_colour
+                        + ((1.0 - object.reflectivity())
+                            * (reflection_colour.element_mul(object_colour))));
+            */
+            final_colour = final_colour
+                + (fresnel + object.reflectivity()).clamp(0.0, 1.0)
+                    * reflection_colour.element_mul(object_colour);
         }
         final_colour
     }
@@ -205,7 +237,7 @@ impl Engine<'_> {
     ) -> f32 {
         let mut distance_travelled = 0.0;
         let mut shade: f32 = 1.0; // actually the amount of "not shade"
-        const MAX_SHAD_IT: u32 = 4;
+        const MAX_SHAD_IT: u32 = 12;
         let smoothstep = |x: f32| 3.0 * x.powi(2) - 2.0 * x.powi(3);
 
         for _ in 0..MAX_SHAD_IT {
@@ -225,7 +257,7 @@ impl Engine<'_> {
             shade = shade.min(smoothstep(
                 (shading_k * distance / distance_travelled).clamp(0.0, 1.0),
             ));
-            distance = distance.clamp(SMALL_DISTANCE, light_dist / MAX_SHAD_IT as f32);
+            //distance = distance.clamp(SMALL_DISTANCE, light_dist / MAX_SHAD_IT as f32);
             distance_travelled += distance; // could clamp this for better res
             ray.position = ray.position + (ray.direction * distance);
             if distance < SMALL_DISTANCE || distance_travelled > light_dist {

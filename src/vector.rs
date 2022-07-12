@@ -33,6 +33,14 @@ impl Vec3 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
+    pub fn element_mul(&self, other: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+        }
+    }
+
     pub fn reflect(&self, normal: Vec3) -> Vec3 {
         *self - normal * (2.0 * normal.dot(*self))
     }

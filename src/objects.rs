@@ -16,7 +16,7 @@ pub trait EngineObject {
     }
 
     fn ambient(&self) -> f32 {
-        0.03
+        0.1
     }
 
     fn shininess(&self) -> f32 {
@@ -27,6 +27,12 @@ pub trait EngineObject {
 pub trait EngineLight {
     fn get_position(&self) -> Vec3;
     fn get_intensity(&self) -> f32;
+}
+
+#[derive(Clone, Copy)]
+pub struct ReflectiveSphere {
+    pub position: Vec3,
+    pub radius: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -63,6 +69,7 @@ const WHITE: Colour = rgb![255, 255, 255];
 const SOFT_RED: Colour = rgb![214, 81, 81];
 const SOFT_GREEN: Colour = rgb![81, 214, 81];
 const SOFT_GRAY: Colour = rgb![214, 214, 214];
+const SOFT_YELLOW: Colour = rgb![230, 230, 127];
 
 impl EngineObject for YPlane {
     fn sdf(&self, position: Vec3) -> f32 {
@@ -70,7 +77,7 @@ impl EngineObject for YPlane {
     }
 
     fn colour(&self, _position: Vec3) -> Colour {
-        rgb![179, 179, 179]
+        SOFT_GRAY
     }
 }
 
@@ -108,7 +115,7 @@ let p = Vec3 {
 p.x.max(p.y.max(p.z)) - 1.0 + p.dot(p) * 0.2
 */
 
-impl EngineObject for Sphere {
+impl EngineObject for ReflectiveSphere {
     fn sdf(&self, position: Vec3) -> f32 {
         (position - self.position).mag() - self.radius
     }
@@ -125,11 +132,35 @@ impl EngineObject for Sphere {
         0.03
     }
 
+    fn ambient(&self) -> f32 {
+        0.05
+    }
+
     fn shininess(&self) -> f32 {
         16.0
     }
 
     fn specular(&self) -> f32 {
+        0.2
+    }
+}
+
+impl EngineObject for Sphere {
+    fn sdf(&self, position: Vec3) -> f32 {
+        (position - self.position).mag() - self.radius
+    }
+
+    fn colour(&self, _position: Vec3) -> Colour {
+        SOFT_YELLOW
+    }
+
+    fn specular(&self) -> f32 {
+        0.9
+    }
+    fn shininess(&self) -> f32 {
+        32.0
+    }
+    fn reflectivity(&self) -> f32 {
         0.2
     }
 }

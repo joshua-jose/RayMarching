@@ -7,7 +7,7 @@ mod vector;
 extern crate sdl2;
 
 use engine::{Engine, HEIGHT, WIDTH};
-use objects::{PointLight, Sphere, XPlane, YPlane, ZPlane};
+use objects::{PointLight, ReflectiveSphere, Sphere, XPlane, YPlane, ZPlane};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Instant;
@@ -44,11 +44,19 @@ fn main() {
 
     let mut engine = Engine {
         objects: vec![
+            &ReflectiveSphere {
+                position: Vec3 {
+                    x: -1.0,
+                    y: -0.85,
+                    z: 0.5,
+                },
+                radius: 1.0,
+            },
             &Sphere {
                 position: Vec3 {
-                    x: 0.0,
+                    x: 1.0,
                     y: -0.85,
-                    z: 0.0,
+                    z: -0.8,
                 },
                 radius: 1.0,
             },
@@ -61,14 +69,14 @@ fn main() {
         ],
         camera_position: Vec3 {
             x: 0.0,
-            y: 0.0,
+            y: 0.5,
             z: -4.0,
         },
         light: PointLight {
             position: Vec3 {
                 x: 0.0,
                 y: 3.0,
-                z: 0.0,
+                z: -4.0,
             },
             intensity: 12.0,
         },
