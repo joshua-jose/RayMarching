@@ -1,27 +1,11 @@
+use super::material::Material;
 use super::vector::Vec3;
 use Vec3 as Colour;
 
 pub trait EngineObject {
     fn sdf(&self, position: Vec3) -> f32;
     fn colour(&self, position: Vec3) -> Colour;
-
-    fn diffuse(&self) -> f32 {
-        1.0
-    }
-    fn specular(&self) -> f32 {
-        0.0
-    }
-    fn reflectivity(&self) -> f32 {
-        0.0
-    }
-
-    fn ambient(&self) -> f32 {
-        0.1
-    }
-
-    fn shininess(&self) -> f32 {
-        4.0
-    }
+    fn material(&self) -> Material;
 }
 
 pub trait EngineLight {
@@ -30,33 +14,35 @@ pub trait EngineLight {
 }
 
 #[derive(Clone, Copy)]
-pub struct ReflectiveSphere {
-    pub position: Vec3,
-    pub radius: f32,
-}
-
-#[derive(Clone, Copy)]
 pub struct Sphere {
     pub position: Vec3,
     pub radius: f32,
+    pub material: Material,
+    pub colour: Colour
 }
 
 #[derive(Clone, Copy)]
 pub struct YPlane {
     pub y: f32,
     pub dir: f32,
+    pub material: Material,
+    pub colour: Colour
 }
 
 #[derive(Clone, Copy)]
 pub struct XPlane {
     pub x: f32,
     pub dir: f32,
+    pub material: Material,
+    pub colour: Colour
 }
 
 #[derive(Clone, Copy)]
 pub struct ZPlane {
     pub z: f32,
     pub dir: f32,
+    pub material: Material,
+    pub colour: Colour
 }
 
 #[derive(Clone, Copy)]
@@ -65,20 +51,13 @@ pub struct PointLight {
     pub intensity: f32,
 }
 
-const WHITE: Colour = rgb![255, 255, 255];
-const SOFT_RED: Colour = rgb![214, 81, 81];
-const SOFT_GREEN: Colour = rgb![81, 214, 81];
-const SOFT_GRAY: Colour = rgb![214, 214, 214];
-const SOFT_YELLOW: Colour = rgb![230, 230, 127];
-
 impl EngineObject for YPlane {
     fn sdf(&self, position: Vec3) -> f32 {
         self.dir * (position.y - self.y)
     }
 
-    fn colour(&self, _position: Vec3) -> Colour {
-        SOFT_GRAY
-    }
+    fn colour(&self, _position: Vec3) -> Colour { self.colour }
+    fn material(&self) -> Material { self.material }
 }
 
 impl EngineObject for XPlane {
@@ -86,13 +65,8 @@ impl EngineObject for XPlane {
         self.dir * (position.x - self.x)
     }
 
-    fn colour(&self, position: Vec3) -> Colour {
-        if position.x < 0.0 {
-            SOFT_RED
-        } else {
-            SOFT_GREEN
-        }
-    }
+    fn colour(&self, _position: Vec3) -> Colour { self.colour }
+    fn material(&self) -> Material { self.material }
 }
 
 impl EngineObject for ZPlane {
@@ -100,9 +74,17 @@ impl EngineObject for ZPlane {
         self.dir * (position.z - self.z)
     }
 
-    fn colour(&self, _position: Vec3) -> Colour {
-        SOFT_GRAY
+    fn colour(&self, _position: Vec3) -> Colour { self.colour }
+    fn material(&self) -> Material { self.material }
+}
+
+impl EngineObject for Sphere {
+    fn sdf(&self, position: Vec3) -> f32 {
+        (position - self.position).mag() - self.radius
     }
+
+    fn colour(&self, _position: Vec3) -> Colour { self.colour }
+    fn material(&self) -> Material { self.material }
 }
 
 // box
@@ -114,56 +96,6 @@ let p = Vec3 {
 };
 p.x.max(p.y.max(p.z)) - 1.0 + p.dot(p) * 0.2
 */
-
-impl EngineObject for ReflectiveSphere {
-    fn sdf(&self, position: Vec3) -> f32 {
-        (position - self.position).mag() - self.radius
-    }
-
-    fn colour(&self, _position: Vec3) -> Colour {
-        WHITE
-    }
-
-    fn reflectivity(&self) -> f32 {
-        1.0
-    }
-
-    fn diffuse(&self) -> f32 {
-        0.03
-    }
-
-    fn ambient(&self) -> f32 {
-        0.05
-    }
-
-    fn shininess(&self) -> f32 {
-        16.0
-    }
-
-    fn specular(&self) -> f32 {
-        0.2
-    }
-}
-
-impl EngineObject for Sphere {
-    fn sdf(&self, position: Vec3) -> f32 {
-        (position - self.position).mag() - self.radius
-    }
-
-    fn colour(&self, _position: Vec3) -> Colour {
-        SOFT_YELLOW
-    }
-
-    fn specular(&self) -> f32 {
-        0.9
-    }
-    fn shininess(&self) -> f32 {
-        32.0
-    }
-    fn reflectivity(&self) -> f32 {
-        0.2
-    }
-}
 
 impl EngineLight for PointLight {
     fn get_position(&self) -> Vec3 {

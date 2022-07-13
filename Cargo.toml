@@ -8,6 +8,3 @@ edition = "2018"
 
 [dependencies]
 sdl2 = "0.35"
-
-[build]
-rustflags = ["-C","opt-level=3", "-C", "target-cpu=native", "-C", "llvm-args='-ffast-math'"]
