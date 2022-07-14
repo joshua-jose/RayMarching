@@ -13,7 +13,7 @@ use material::Material;
 use objects::{EngineObject, PointLight,Sphere, XPlane, YPlane, ZPlane};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::{time::Instant, rc::Rc};
+use std::time::Instant;
 use vector::Vec3;
 use colour::{WHITE,SOFT_YELLOW,SOFT_GRAY, SOFT_RED, SOFT_GREEN};
 
@@ -47,13 +47,14 @@ fn main() {
     //let mut buffer = vec![0 as u8; 800 * 600 * 4];
 
     let objs = construct_objects();
-    let objrefs = objs.iter().map(|x| x.as_ref()).collect();
 
-    let engine = Engine {
-        objects: objrefs,
-        camera_position: Vec3 { x: 0.0, y: 0.5, z: -4.0 },
+    let mut engine = Engine {
+        objects: objs,
+        camera_position: Vec3 { x: 0.0, y: 0.5, z: -3.5 },
         light: PointLight {position: Vec3 { x: 0.0, y: 3.0, z: -3.0 }, intensity: 12.0,},
     };
+    
+    engine.compute_radiosity();
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -78,11 +79,11 @@ fn main() {
     }
 }
 
-fn construct_objects() -> Vec<Rc<dyn EngineObject>> {
+fn construct_objects() -> Vec<Box<dyn EngineObject>> {
     const BASIC_MAT: Material = Material::basic();
     
-    let ret:Vec<Rc<dyn EngineObject>> = vec![
-        Rc::new(Sphere {
+     vec![
+        Box::new(Sphere {
             position: Vec3 { x: -1.0, y: -0.85, z: 0.5 },
             radius:   1.0,
             material: Material {
@@ -94,7 +95,7 @@ fn construct_objects() -> Vec<Rc<dyn EngineObject>> {
             },
             colour: WHITE
         }),
-        Rc::new(Sphere {
+        Box::new(Sphere {
             position: Vec3 { x: 1.0, y: -0.85, z: -0.8 },
             radius:   1.0,
             material: Material {
@@ -106,12 +107,11 @@ fn construct_objects() -> Vec<Rc<dyn EngineObject>> {
             },
             colour: SOFT_YELLOW
         }),
-        Rc::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY )),
-        Rc::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY )),
-        Rc::new(XPlane::new( -3.0, 1.0, BASIC_MAT, SOFT_RED)),
-        Rc::new(XPlane::new( 3.0, -1.0, BASIC_MAT,  SOFT_GREEN)) ,
-        Rc::new(ZPlane::new( 2.0, -1.0, BASIC_MAT, SOFT_GRAY )),
-        Rc::new(ZPlane::new( -4.5, 1.0, BASIC_MAT, SOFT_GRAY )),
-    ];
-    ret
+        Box::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY )),
+        Box::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY )),
+        Box::new(XPlane::new( -3.0, 1.0, BASIC_MAT, SOFT_RED)),
+        Box::new(XPlane::new( 3.0, -1.0, BASIC_MAT,  SOFT_GREEN)) ,
+        Box::new(ZPlane::new( 2.0, -1.0, BASIC_MAT, SOFT_GRAY )),
+        Box::new(ZPlane::new( -4.0, 1.0, BASIC_MAT, SOFT_GRAY )),
+    ]
 }

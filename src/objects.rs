@@ -1,3 +1,5 @@
+use crate::radiosity::MAP_SIZE;
+
 use super::material::Material;
 use super::vector::Vec3;
 use super::radiosity::Lightmap;
@@ -14,9 +16,9 @@ pub trait EngineObject {
     fn clear_lightmap(&mut self) {}
 
     // for a given uv coordinate, get the world space coordinate
-    fn get_sample_pos(&self, _u: u32, _v: u32) -> Vec3{unimplemented!()}
+    fn get_sample_pos(&self, _u: usize, _v: usize) -> Vec3{unimplemented!()}
     // for a given world position, sample the lightmap at that point
-    fn sample(&self, _pos: Vec3) -> (u32, u32){unimplemented!()}
+    fn sample(&self, _pos: Vec3) -> (usize, usize){unimplemented!()}
 }
 
 pub trait EngineLight {
@@ -84,11 +86,6 @@ macro_rules! plane_funcs {
         fn get_lightmap(&self) -> Option<&Lightmap> {Some(&self.lightmap)}
         fn set_lightmap(&mut self, new_lightmap: Lightmap) {self.lightmap = new_lightmap;}
         fn clear_lightmap(&mut self) {self.lightmap = Lightmap::default()}
-
-        // for a given uv coordinate, get the world space coordinate
-        fn get_sample_pos(&self, _u: u32, _v: u32) -> Vec3{unimplemented!()}
-        // for a given world position, sample the lightmap at that point
-        fn sample(&self, _pos: Vec3) -> (u32, u32){unimplemented!()}
     };
 }
 
@@ -116,6 +113,8 @@ impl EngineObject for YPlane {
     }
 
     plane_funcs!();
+    fn get_sample_pos(&self, u: usize, v: usize) -> Vec3{Vec3{x:(u- MAP_SIZE /2) as f32, y: self.y, z: (v- MAP_SIZE/2) as f32}}
+    fn sample(&self, pos: Vec3) -> (usize, usize){(pos.x.floor() as usize  + MAP_SIZE/2,pos.z.floor() as usize + MAP_SIZE /2)}
 }
 
 impl EngineObject for XPlane {
@@ -124,6 +123,8 @@ impl EngineObject for XPlane {
     }
 
     plane_funcs!();
+    fn get_sample_pos(&self, u: usize, v: usize) -> Vec3{Vec3{x: self.x, y: (u- MAP_SIZE/2) as f32, z: (v- MAP_SIZE /2) as f32}}
+    fn sample(&self, pos: Vec3) -> (usize, usize){(pos.y.floor() as usize + MAP_SIZE/2,pos.z.floor() as usize + MAP_SIZE/2)}
 }
 
 impl EngineObject for ZPlane {
@@ -132,6 +133,8 @@ impl EngineObject for ZPlane {
     }
 
     plane_funcs!();
+    fn get_sample_pos(&self, u: usize, v: usize) -> Vec3{Vec3{x:(u- MAP_SIZE/2) as f32, y: (v- MAP_SIZE /2) as f32, z: self.z}}
+    fn sample(&self, pos: Vec3) -> (usize, usize){(pos.x.floor() as usize + MAP_SIZE/2,pos.y.floor() as usize + MAP_SIZE /2)}
 }
 
 impl EngineObject for Sphere {

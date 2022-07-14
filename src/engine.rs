@@ -1,8 +1,8 @@
+
 use std::f32::consts::PI;
 
-use crate::radiosity::Lightmap;
+use crate::radiosity::{MAP_SIZE, Lightmap};
 
-use super::radiosity::MAP_SIZE;
 use super::colour::{ACESFilm, Pixel};
 use super::objects::{EngineLight, EngineObject, PointLight};
 use super::vector::Vec3;
@@ -16,7 +16,7 @@ const SMALL_DISTANCE: f32 = 0.001;
 const MAX_SHAD_IT: u32 = 16;
 const SKY_COLOUR: Vec3 = rgb![135, 206, 235];
 
-type ObjectRef<'a> = &'a dyn EngineObject;
+type ObjectRef = Box<dyn EngineObject>;
 
 static mut N: i32 = 0;
 
@@ -25,7 +25,7 @@ fn to_pixel_range(i: f32) -> u8 {
     (255.0 * i).round().clamp(0.0, 255.0) as u8
 }
 
-impl Engine<'_> {
+impl Engine {
     pub fn render(&self, buffer: &mut [u8], _width: usize) {
         unsafe {
             N += 1;
@@ -51,8 +51,6 @@ impl Engine<'_> {
         let buffer_pixels = unsafe {
             std::slice::from_raw_parts_mut(buffer.as_mut_ptr() as *mut Pixel, WIDTH * HEIGHT * 4)
         };
-
-        self.compute_radiosity();
 
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -115,19 +113,32 @@ impl Engine<'_> {
         //sky_colour[0] = sky_colour[0] * (direction.y.max(0.2));
         match has_hit {
             None => colour = SKY_COLOUR,
-            Some(object) => colour = self.shade_object(object, ray.position, direction),
+            Some(obj_index) => colour = self.shade_object(obj_index, ray.position, direction),
         }
         colour
     }
 
-    fn shade_object(&self, object: ObjectRef, position: Vec3, direction: Vec3) -> Colour {
+    fn shade_object(&self, obj_index: usize, position: Vec3, direction: Vec3) -> Colour {
         let mut final_colour: Colour;
+        let object = &self.objects[obj_index];
+        
 
         let object_colour = object.colour(position);
         let object_mat = &object.material();
 
+        /* 
+        let ambient: Colour;
+        if object.get_lightmap().is_some(){
+            let (u,v) = object.sample(position);
+            let sample = object.get_lightmap().unwrap().sample_map[u][v];
+            ambient = sample;
+        }
+        else{
+            ambient = object_colour * object_mat.ambient;
+        }
+        */
+        let ambient = object_colour * object_mat.ambient;
         let diffuse: f32;
-        let ambient: f32 = object_mat.ambient;
         let specular: f32;
 
         let n = Engine::calculate_normal(position, object); // normal vector
@@ -144,7 +155,7 @@ impl Engine<'_> {
             position,
             direction: vector_to_light,
         };
-        let shade = self.smooth_shadow_march(&mut shadow_ray, object, distance_to_light, 16.0);
+        let shade = self.smooth_shadow_march(&mut shadow_ray, obj_index, distance_to_light, 16.0);
 
         // Phong shading algorithm
         diffuse = object_mat.diffuse * light_intensity * vector_to_light.dot(n).max(0.0);
@@ -160,7 +171,7 @@ impl Engine<'_> {
         }
         //}
 
-        final_colour = object_colour * (ambient + shade * (diffuse + specular));
+        final_colour = ambient + object_colour * ( shade * (diffuse + specular));
 
         // if the object is reflective, cast a reflection ray
         if object_mat.reflectivity > 1e-3 {
@@ -187,16 +198,17 @@ impl Engine<'_> {
         final_colour
     }
 
-    fn march(&self, ray: &mut Ray, ignore_object: Option<ObjectRef>) -> Option<ObjectRef> {
+    pub fn march(&self, ray: &mut Ray, ignore_object: Option<usize>) -> Option<usize> {
         let mut distance_travelled = 0.0;
+        let has_ignore = ignore_object.is_some();
 
         while distance_travelled < MAX_MARCH_DISTANCE {
             let mut distance = f32::INFINITY;
-            let mut closest_object: Option<ObjectRef> = None;
+            let mut closest_object: Option<usize> = None;
             
-            for object in &self.objects {
-                if ignore_object.is_some() {
-                    if std::ptr::eq(ignore_object.unwrap(), *object) {
+            for (i,object) in self.objects.iter().enumerate() {
+                if has_ignore {
+                    if ignore_object.unwrap() == i {
                         continue;
                     }
                 }
@@ -204,7 +216,7 @@ impl Engine<'_> {
                 let obj_distance = object.sdf(ray.position);
                 if obj_distance < distance {
                     distance = obj_distance;
-                    closest_object = Some(*object);
+                    closest_object = Some(i);
                 };
             }
             if distance < SMALL_DISTANCE {
@@ -218,7 +230,7 @@ impl Engine<'_> {
     }
 
     fn smooth_shadow_march(
-        &self, ray: &mut Ray, ignore_object: ObjectRef, light_dist: f32, shading_k: f32,
+        &self, ray: &mut Ray, ignore_obj_index: usize, light_dist: f32, shading_k: f32,
     ) -> f32 {
         let mut distance_travelled = 0.0;
         let mut shade: f32 = 1.0; // actually the amount of "not shade"
@@ -228,8 +240,8 @@ impl Engine<'_> {
         for _ in 0..MAX_SHAD_IT {
             let mut distance = f32::INFINITY;
 
-            for object in &self.objects {
-                if std::ptr::eq(ignore_object, *object) {
+            for (i,object) in self.objects.iter().enumerate() {
+                if ignore_obj_index == i {
                     continue;
                 }
 
@@ -252,7 +264,7 @@ impl Engine<'_> {
         shade.clamp(0.0, 1.0)
     }
 
-    pub fn calculate_normal(position: Vec3, object: ObjectRef) -> Vec3 {
+    pub fn calculate_normal(position: Vec3, object: &ObjectRef) -> Vec3 {
         let gradient_x = object.sdf(position + X_STEP) - object.sdf(position - X_STEP);
         let gradient_y = object.sdf(position + Y_STEP) - object.sdf(position - Y_STEP);
         let gradient_z = object.sdf(position + Z_STEP) - object.sdf(position - Z_STEP);
@@ -265,124 +277,6 @@ impl Engine<'_> {
         .normalized()
     }
 
-    fn compute_radiosity(&self){
-        /* 
-        // get all objects with a lightmap
-        let objects: Vec<&&dyn EngineObject> = self.objects.iter().filter(|x| x.get_lightmap().is_some()).collect();
-        
-        for i in &objects{
-            i.clear_lightmap()
-        };
-    
-        // map of every sample point's position in the world
-        let mut point_cloud: Vec<[[Vec3;MAP_SIZE];MAP_SIZE]> = vec![];
-        point_cloud.resize(objects.len(),[[Vec3::default();MAP_SIZE];MAP_SIZE] );
-    
-        // get point cloud (world pos of all points)
-        for i in 0..objects.len(){
-            for x in 0..MAP_SIZE {
-                for y in 0..MAP_SIZE {
-                    point_cloud[i][x][y] = objects[i].get_sample_pos(x as u32, y as u32);
-                }
-            }
-        }
-        
-        let light_pos = self.light.get_position();
-        let light_intensity = self.light.get_intensity();
-
-        // direct lighting stage
-        for i in 0..objects.len() {
-            let object = *objects[i];
-            let mut lightmap = object.get_lightmap().unwrap().clone();
-
-            for x in 0..MAP_SIZE {
-                for y in 0..MAP_SIZE {
-                    let origin = point_cloud[i][x][y];
-
-                    let vector_to_light = light_pos - origin;
-                    let distance_to_light = vector_to_light.mag();
-                    let vector_to_light = vector_to_light / distance_to_light;
-                    
-                    let mut shadow_ray = Ray{
-                        position: origin, 
-                        direction: vector_to_light
-                    };
-                    let hit = self.march(&mut shadow_ray, Some(object));
-
-                    if hit.is_none(){
-                        let n = Engine::calculate_normal(origin, object);
-                        let diffuse = n.dot(shadow_ray.direction) * light_intensity / (distance_to_light + 1.0).powi(2);
-                        lightmap.sample_map[x][y] = object.colour(origin) * diffuse;
-                    }
-                }
-            }
-            object.set_lightmap(lightmap);
-        }
-    
-        // generate occlusion matrix from point cloud
-        // light bounces
-        let mut lightmaps: Vec<Lightmap> = Vec::new();
-        lightmaps.reserve(objects.len());
-
-        for i in 0..objects.len() {
-            let lit_object = *objects[i];
-            let mut lit_lightmap = lit_object.get_lightmap().unwrap().clone();
-
-            for x in 0..MAP_SIZE {
-                for y in 0..MAP_SIZE {
-                    // patch we are lighting
-                    let origin = point_cloud[i][x][y];
-                    let n_lit = Engine::calculate_normal(origin, lit_object);
-
-                    for j in 0..objects.len() {
-                        // get light output from this patch
-                        if i == j {continue}
-                        let lighting_object = *objects[i];
-                        let lighting_lightmap = lighting_object.get_lightmap().unwrap().clone();
-            
-                        for a in 0..MAP_SIZE {
-                            for b in 0..MAP_SIZE {
-                                // patch we are lighting
-                                let light_source = point_cloud[j][a][b];
-                                let light_colour = lighting_lightmap.sample_map[a][b];
-
-                                let vector_to_light = light_source - origin;
-                                let distance_to_light = vector_to_light.mag();
-                                let vector_to_light = vector_to_light / distance_to_light;
-
-                                let mut shadow_ray = Ray{
-                                    position: origin, 
-                                    direction: vector_to_light
-                                };
-                                let hit = self.march(&mut shadow_ray, Some(lit_object));
-
-                                if hit.is_some(){
-                                    if std::ptr::eq(hit.unwrap(), lighting_object){
-                                        let diffuse = n_lit.dot(shadow_ray.direction) * 1.0 / (distance_to_light + 1.0).powi(2);
-                                        lit_lightmap.sample_map[x][y] += light_colour * diffuse;
-                                    }
-                                }
-
-                            }
-                        }
-                        // scale by surface area of the patches
-                        lit_lightmap.sample_map[x][y] =  lit_lightmap.sample_map[x][y]/ MAP_SIZE.pow(2) as f32;
-                    }  
-                    // "because calculus"
-                    lit_lightmap.sample_map[x][y] =  lit_lightmap.sample_map[x][y]/ PI;
-                }
-            }
-            lightmaps.push(lit_lightmap);
-            
-        }
-
-        for i in 0..objects.len() {
-            objects[i].set_lightmap(lightmaps[i]);
-        }
-
-        // for each bounce, copy all light maps and recompute them
-        */
-    }
 
     /*
     // cheaper tetrahedral normal
@@ -393,10 +287,136 @@ impl Engine<'_> {
         e.yxy * map(p + e.yxy) +
         e.xxx * map(p + e.xxx));
     */
+
+    pub fn compute_radiosity(&mut self){
+        self.objects.iter_mut().for_each(|x| x.clear_lightmap());
+
+        // get all objects with a lightmap
+        let obj_indexes = self.objects
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| x.get_lightmap().is_some())
+        .map(|(index, _)| index)
+        .collect::<Vec<_>>();
+        
+    
+        // map of every sample point's position in the world
+        let mut point_cloud: Vec<[[Vec3;MAP_SIZE];MAP_SIZE]> = vec![];
+        point_cloud.resize(obj_indexes.len(),[[Vec3::default();MAP_SIZE];MAP_SIZE] );
+    
+        // get point cloud (world pos of all points)
+        for (cloud_index, &obj_index) in obj_indexes.iter().enumerate(){
+            for x in 0..MAP_SIZE {
+                for y in 0..MAP_SIZE {
+                    point_cloud[cloud_index][x][y] = self.objects[obj_index].get_sample_pos(x, y);
+                }
+            }
+        }
+        
+        let light_pos = self.light.get_position();
+        let light_intensity = self.light.get_intensity();
+    
+        // direct lighting stage
+        for (cloud_index, &obj_index) in obj_indexes.iter().enumerate(){
+            let object = &self.objects[obj_index];
+            let mut lightmap = object.get_lightmap().unwrap().clone();
+    
+            for x in 0..MAP_SIZE {
+                for y in 0..MAP_SIZE {
+                    let origin = point_cloud[cloud_index][x][y];
+    
+                    let vector_to_light = light_pos - origin;
+                    let distance_to_light = vector_to_light.mag();
+                    let vector_to_light = vector_to_light / distance_to_light;
+                    
+                    let mut shadow_ray = Ray{
+                        position: origin, 
+                        direction: vector_to_light
+                    };
+                    let _ = self.march(&mut shadow_ray, Some(obj_index));
+    
+                    if (shadow_ray.position - origin).mag() >= distance_to_light{
+                        let n = Engine::calculate_normal(origin, object);
+                        let diffuse = n.dot(shadow_ray.direction).max(0.0) * light_intensity / (distance_to_light + 1.0).powi(2);
+                        
+                        lightmap.sample_map[x][y] = object.colour(origin) * diffuse;
+                    }
+                }
+            }
+            self.objects[obj_index].set_lightmap(lightmap);
+        }
+        
+        // generate occlusion matrix from point cloud
+        // light bounces
+        for _ in 0..1{
+            let mut lightmaps: Vec<Lightmap> = Vec::new();
+            lightmaps.reserve(obj_indexes.len());
+        
+            for (lit_cloud_index, &lit_obj_index) in obj_indexes.iter().enumerate() {
+                let lit_object = &self.objects[lit_obj_index];
+                let mut lit_lightmap = lit_object.get_lightmap().unwrap().clone();
+        
+                for x in 0..MAP_SIZE {
+                    for y in 0..MAP_SIZE {
+                        // patch we are lighting
+                        let origin = point_cloud[lit_cloud_index][x][y];
+                        let n_lit = Engine::calculate_normal(origin, lit_object);
+        
+                        for (lighting_cloud_index, &lighting_obj_index) in obj_indexes.iter().enumerate() {
+                            // get light output from this patch
+                            if lit_obj_index == lighting_obj_index {continue}
+                            let lighting_object = &self.objects[lighting_obj_index];
+                            let lighting_lightmap = lighting_object.get_lightmap().unwrap().clone();
+                
+                            for a in 0..MAP_SIZE {
+                                for b in 0..MAP_SIZE {
+                                    // patch we are lighting
+                                    let light_source = point_cloud[lighting_cloud_index][a][b];
+                                    let light_colour = lighting_lightmap.sample_map[a][b];
+        
+                                    let vector_to_light = light_source - origin;
+                                    let distance_to_light = vector_to_light.mag();
+                                    let vector_to_light = vector_to_light / distance_to_light;
+        
+                                    let mut shadow_ray = Ray{
+                                        position: origin, 
+                                        direction: vector_to_light
+                                    };
+                                    let hit = self.march(&mut shadow_ray, Some(lit_obj_index));
+        
+                                    if hit.is_some(){
+                                        if hit.unwrap() == lighting_obj_index{
+                                            let diffuse = n_lit.dot(shadow_ray.direction).max(0.0) * 1.0 / (distance_to_light + 1.0).powi(2);
+                                            lit_lightmap.sample_map[x][y] += light_colour * diffuse;
+                                        }
+                                    }
+        
+                                }
+                            }
+                            // scale by surface area of the patches
+                            //lit_lightmap.sample_map[x][y] =  lit_lightmap.sample_map[x][y]/ MAP_SIZE.pow(2) as f32;
+                        }  
+                        // "because calculus"
+                        lit_lightmap.sample_map[x][y] =  lit_lightmap.sample_map[x][y]/ PI;
+                        //println!("{}", lit_lightmap.sample_map[x][y]);
+                    }
+                }
+                lightmaps.push(lit_lightmap);
+                
+            }
+        
+            for (cloud_index, &obj_index) in obj_indexes.iter().enumerate(){
+                self.objects[obj_index].set_lightmap(lightmaps[cloud_index]);
+            }
+        }
+    
+        // for each bounce, copy all light maps and recompute them
+        
+    }
 }
 
-pub struct Engine<'a> {
-    pub objects: Vec<ObjectRef<'a>>,
+pub struct Engine {
+    pub objects: Vec<ObjectRef>,
     pub camera_position: Vec3,
     pub light: PointLight,
 }
