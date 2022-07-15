@@ -3,19 +3,19 @@ mod colour;
 mod engine;
 mod material;
 mod objects;
-mod vector;
 mod radiosity;
+mod vector;
 
 extern crate sdl2;
 
+use colour::{SOFT_GRAY, SOFT_GREEN, SOFT_RED, SOFT_YELLOW, WHITE};
 use engine::{Engine, HEIGHT, WIDTH};
 use material::Material;
-use objects::{EngineObject, PointLight,Sphere, XPlane, YPlane, ZPlane};
+use objects::{EngineObject, PointLight, Sphere, XPlane, YPlane, ZPlane};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Instant;
 use vector::Vec3;
-use colour::{WHITE,SOFT_YELLOW,SOFT_GRAY, SOFT_RED, SOFT_GREEN};
 
 fn main() {
     println!("Hello, world!");
@@ -50,18 +50,31 @@ fn main() {
 
     let mut engine = Engine {
         objects: objs,
-        camera_position: Vec3 { x: 0.0, y: 0.5, z: -3.5 },
-        light: PointLight {position: Vec3 { x: 0.0, y: 3.0, z: -3.0 }, intensity: 12.0,},
+        camera_position: Vec3 {
+            x: 0.0,
+            y: 0.5,
+            z: -3.5,
+        },
+        light: PointLight {
+            position: Vec3 {
+                x: 0.0,
+                y: 3.5,
+                z: -3.0,
+            },
+            intensity: 12.0,
+        },
     };
-    
+
     engine.compute_radiosity();
 
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                }
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'running,
                 _ => {}
             }
         }
@@ -81,37 +94,45 @@ fn main() {
 
 fn construct_objects() -> Vec<Box<dyn EngineObject>> {
     const BASIC_MAT: Material = Material::basic();
-    
-     vec![
+
+    vec![
         Box::new(Sphere {
-            position: Vec3 { x: -1.0, y: -0.85, z: 0.5 },
-            radius:   1.0,
+            position: Vec3 {
+                x: -1.0,
+                y: -0.85,
+                z: 0.0,
+            },
+            radius: 1.0,
             material: Material {
-                ambient:      0.05,
-                diffuse:      0.03,
-                specular:     0.2,
-                shininess:    16.0,
+                ambient: 0.05,
+                diffuse: 0.03,
+                specular: 0.2,
+                shininess: 16.0,
                 reflectivity: 1.0,
             },
-            colour: WHITE
+            colour: WHITE,
         }),
         Box::new(Sphere {
-            position: Vec3 { x: 1.0, y: -0.85, z: -0.8 },
-            radius:   1.0,
+            position: Vec3 {
+                x: 1.0,
+                y: -0.85,
+                z: -0.8,
+            },
+            radius: 1.0,
             material: Material {
-                ambient:      0.1,
-                diffuse:      1.0,
-                specular:     0.9,
-                shininess:    32.0,
+                ambient: 0.1,
+                diffuse: 1.0,
+                specular: 0.9,
+                shininess: 32.0,
                 reflectivity: 0.3,
             },
-            colour: SOFT_YELLOW
+            colour: SOFT_YELLOW,
         }),
-        Box::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY )),
-        Box::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY )),
-        Box::new(XPlane::new( -3.0, 1.0, BASIC_MAT, SOFT_RED)),
-        Box::new(XPlane::new( 3.0, -1.0, BASIC_MAT,  SOFT_GREEN)) ,
-        Box::new(ZPlane::new( 2.0, -1.0, BASIC_MAT, SOFT_GRAY )),
-        Box::new(ZPlane::new( -4.0, 1.0, BASIC_MAT, SOFT_GRAY )),
+        Box::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY)),
+        Box::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY)),
+        Box::new(XPlane::new(-3.0, 1.0, BASIC_MAT, SOFT_RED)),
+        Box::new(XPlane::new(3.0, -1.0, BASIC_MAT, SOFT_GREEN)),
+        Box::new(ZPlane::new(2.0, -1.0, BASIC_MAT, SOFT_GRAY)),
+        Box::new(ZPlane::new(-4.0, 1.0, BASIC_MAT, SOFT_GRAY)),
     ]
 }
