@@ -159,7 +159,6 @@ impl Engine {
         } else {
             specular = 0.0;
         }
-        //}
 
         final_colour = ambient + object_colour * (shade * (diffuse + specular));
 
@@ -244,7 +243,8 @@ impl Engine {
                 break;
             }
         }
-        shade.clamp(0.0, 1.0)
+        // TODO: remove 0.3
+        shade.clamp(0.3, 1.0)
     }
 
     pub fn calculate_normal(position: Vec3, object: &ObjectRef) -> Vec3 {
@@ -285,12 +285,16 @@ impl Engine {
         // map of every sample point's position in the world
         let mut point_cloud: Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]> = vec![];
         point_cloud.resize(obj_indexes.len(), [[Vec3::default(); MAP_SIZE]; MAP_SIZE]);
+        let mut colour_cloud: Vec<[[Colour; MAP_SIZE]; MAP_SIZE]> = vec![];
+        colour_cloud.resize(obj_indexes.len(), [[Colour::default(); MAP_SIZE]; MAP_SIZE]);
 
         // get point cloud (world pos of all points)
         for (cloud_index, &obj_index) in obj_indexes.iter().enumerate() {
             for x in 0..MAP_SIZE {
                 for y in 0..MAP_SIZE {
-                    point_cloud[cloud_index][x][y] = self.objects[obj_index].get_sample_pos(x, y);
+                    let sample_pos = self.objects[obj_index].get_sample_pos(x, y);
+                    point_cloud[cloud_index][x][y] = sample_pos;
+                    colour_cloud[cloud_index][x][y] = self.objects[obj_index].colour(sample_pos);
                 }
             }
         }
@@ -298,10 +302,13 @@ impl Engine {
         let light_pos = self.light.get_position();
         let light_intensity = self.light.get_intensity();
 
+        let mut emissive_maps: Vec<Lightmap> = Vec::new();
+        emissive_maps.reserve(obj_indexes.len());
+
         // direct lighting stage
         for (cloud_index, &obj_index) in obj_indexes.iter().enumerate() {
             let object = &self.objects[obj_index];
-            let mut lightmap = object.get_lightmap().unwrap().clone();
+            let mut emissive_map = Lightmap::default();
 
             for x in 0..MAP_SIZE {
                 for y in 0..MAP_SIZE {
@@ -330,26 +337,32 @@ impl Engine {
                     let n = Engine::calculate_normal(origin, object);
                     let diffuse = n.dot(vector_to_light).max(0.0) * light_intensity / (distance_to_light + 1.0).powi(2);
 
-                    lightmap.sample_map[x][y] = object.colour(origin) * diffuse;
+                    emissive_map.sample_map[x][y] = object.colour(origin) * diffuse;
                 }
             }
-            self.objects[obj_index].set_lightmap(lightmap);
+            emissive_maps.push(emissive_map);
+            //self.objects[obj_index].set_lightmap(emissive_map);
         }
 
         // generate occlusion matrix from point cloud
         // light bounces
-        for _ in 0..1 {
+        for _ in 0..2 {
             let mut lightmaps: Vec<Lightmap> = Vec::new();
             lightmaps.reserve(obj_indexes.len());
+
+            let mut new_emissive_maps: Vec<Lightmap> = Vec::new();
+            new_emissive_maps.reserve(obj_indexes.len());
 
             for (lit_cloud_index, &lit_obj_index) in obj_indexes.iter().enumerate() {
                 let lit_object = &self.objects[lit_obj_index];
                 let mut lit_lightmap = lit_object.get_lightmap().unwrap().clone();
+                let mut new_emissive_map = Lightmap::default();
 
                 for x in 0..MAP_SIZE {
                     for y in 0..MAP_SIZE {
                         // patch we are lighting
                         let origin = point_cloud[lit_cloud_index][x][y];
+                        let lit_point_colour = colour_cloud[lit_cloud_index][x][y];
                         let n_lit = Engine::calculate_normal(origin, lit_object);
                         let mut incident: Colour = Colour::new(0.0, 0.0, 0.0);
 
@@ -358,51 +371,58 @@ impl Engine {
                             if lit_obj_index == lighting_obj_index {
                                 continue;
                             }
-                            let lighting_object = &self.objects[lighting_obj_index];
-                            let lighting_lightmap = lighting_object.get_lightmap().unwrap().clone();
+                            //let lighting_object = &self.objects[lighting_obj_index];
+                            //let lighting_lightmap = lighting_object.get_lightmap().unwrap().clone();
+                            let lighting_lightmap = emissive_maps[lighting_cloud_index];
 
                             for a in 0..MAP_SIZE {
                                 for b in 0..MAP_SIZE {
                                     // patch we are lighting
                                     let light_source = point_cloud[lighting_cloud_index][a][b];
                                     let light_colour = lighting_lightmap.sample_map[a][b];
-                                    // TODO: remove this... it's physically inaccurate but looks better
-                                    if (light_colour.x - light_colour.y).abs() < 0.1 {
-                                        continue;
-                                    }
 
                                     let vector_to_light = light_source - origin;
                                     let distance_to_light = vector_to_light.mag();
                                     let vector_to_light = vector_to_light / distance_to_light;
 
+                                    /*
                                     let mut shadow_ray = Ray {
                                         position: origin,
                                         direction: vector_to_light,
                                     };
                                     let hit = self.march(&mut shadow_ray, Some(lit_obj_index));
 
+
                                     if hit.is_some() {
                                         if hit.unwrap() == lighting_obj_index {
                                             let diffuse = n_lit.dot(shadow_ray.direction).max(0.0) * 1.0
                                                 / (distance_to_light + 1.0).powi(2);
-                                            incident += light_colour * diffuse;
+                                            incident += light_colour.element_mul(lit_point_colour) * diffuse;
                                         }
                                     }
+                                    */
+                                    let diffuse =
+                                        n_lit.dot(vector_to_light).max(0.0) * 1.0 / (distance_to_light + 1.0).powi(2);
+                                    incident += light_colour.element_mul(lit_point_colour) * diffuse;
                                 }
                             }
                             // scale by surface area of the patches
-                            //incident = incident / MAP_SIZE.pow(2) as f32;
+                            //incident = incident / ((MAP_SIZE * MAP_SIZE) as f32);
                         }
                         // "because calculus"
-                        lit_lightmap.sample_map[x][y] += incident / PI;
+                        lit_lightmap.sample_map[x][y] += incident.element_mul(incident) / PI;
+                        new_emissive_map.sample_map[x][y] = incident.element_mul(incident) / PI;
+                        //emissive_maps[lit_cloud_index].sample_map[x][y] += incident / PI;
                         //println!("{}", lit_lightmap.sample_map[x][y]);
                     }
                 }
                 lightmaps.push(lit_lightmap);
+                new_emissive_maps.push(new_emissive_map);
             }
 
             for (cloud_index, &obj_index) in obj_indexes.iter().enumerate() {
                 self.objects[obj_index].set_lightmap(lightmaps[cloud_index]);
+                emissive_maps[cloud_index] = new_emissive_maps[cloud_index];
             }
         }
 

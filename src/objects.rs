@@ -112,7 +112,7 @@ macro_rules! plane_funcs {
 
         fn sample(&self, pos: Vec3) -> Colour {
             let (u, v) = self.sample_uv_from_pos(pos);
-            let (u, v) = ((u - 1.0).max(0.0), (v - 1.0).max(0.0));
+            let (u, v) = ((u - 1.0).max(0.0), (v - 1.0).max(0.0)); // TODO: fix this
 
             let (u0, v0) = (u.floor() as usize, v.floor() as usize);
             let (u1, v1) = (u0 + 1, v0 + 1);
@@ -131,7 +131,6 @@ macro_rules! plane_funcs {
                 (u1 as f32, v0 as f32, sample10),
                 (u1 as f32, v1 as f32, sample11),
             ];
-
             bilinear_interpolation(u, v, &points)
         }
     };

@@ -59,7 +59,7 @@ fn main() {
             position: Vec3 {
                 x: 0.0,
                 y: 3.5,
-                z: -3.0,
+                z: -2.5,
             },
             intensity: 12.0,
         },
