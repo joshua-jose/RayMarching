@@ -120,8 +120,7 @@ impl Engine {
 
         let ambient: Colour;
         if object.get_lightmap().is_some() {
-            let (u, v) = object.sample(position);
-            let sample = object.get_lightmap().unwrap().sample_map[u][v];
+            let sample = object.sample(position);
 
             ambient = sample;
         } else {
@@ -312,6 +311,7 @@ impl Engine {
                     let distance_to_light = vector_to_light.mag();
                     let vector_to_light = vector_to_light / distance_to_light;
 
+                    /*
                     let mut shadow_ray = Ray {
                         position: origin,
                         direction: vector_to_light,
@@ -325,6 +325,12 @@ impl Engine {
 
                         lightmap.sample_map[x][y] = object.colour(origin) * diffuse;
                     }
+                    */
+
+                    let n = Engine::calculate_normal(origin, object);
+                    let diffuse = n.dot(vector_to_light).max(0.0) * light_intensity / (distance_to_light + 1.0).powi(2);
+
+                    lightmap.sample_map[x][y] = object.colour(origin) * diffuse;
                 }
             }
             self.objects[obj_index].set_lightmap(lightmap);
@@ -385,7 +391,7 @@ impl Engine {
                                 }
                             }
                             // scale by surface area of the patches
-                            //incident = incident / MAP_SIZE.powi(2) as f32;
+                            //incident = incident / MAP_SIZE.pow(2) as f32;
                         }
                         // "because calculus"
                         lit_lightmap.sample_map[x][y] += incident / PI;

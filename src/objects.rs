@@ -1,5 +1,6 @@
-use crate::radiosity::MAP_SIZE;
+use super::radiosity::MAP_SIZE;
 
+use super::colour::bilinear_interpolation;
 use super::material::Material;
 use super::radiosity::Lightmap;
 use super::vector::Vec3;
@@ -21,8 +22,14 @@ pub trait EngineObject {
     fn get_sample_pos(&self, _u: usize, _v: usize) -> Vec3 {
         unimplemented!()
     }
+
+    // for a given world position, return the uv coordinates on the texture
+    fn sample_uv_from_pos(&self, _pos: Vec3) -> (f32, f32) {
+        unimplemented!()
+    }
+
     // for a given world position, sample the lightmap at that point
-    fn sample(&self, _pos: Vec3) -> (usize, usize) {
+    fn sample(&self, _pos: Vec3) -> Colour {
         unimplemented!()
     }
 }
@@ -102,6 +109,31 @@ macro_rules! plane_funcs {
         fn clear_lightmap(&mut self) {
             self.lightmap = Lightmap::default()
         }
+
+        fn sample(&self, pos: Vec3) -> Colour {
+            let (u, v) = self.sample_uv_from_pos(pos);
+            let (u, v) = ((u - 1.0).max(0.0), (v - 1.0).max(0.0));
+
+            let (u0, v0) = (u.floor() as usize, v.floor() as usize);
+            let (u1, v1) = (u0 + 1, v0 + 1);
+
+            let u1 = if u1 >= MAP_SIZE { u0 } else { u1 };
+            let v1 = if v1 >= MAP_SIZE { v0 } else { v1 };
+
+            let sample00 = self.lightmap.sample_map[u0][v0];
+            let sample01 = self.lightmap.sample_map[u0][v1];
+            let sample10 = self.lightmap.sample_map[u1][v0];
+            let sample11 = self.lightmap.sample_map[u1][v1];
+
+            let points = [
+                (u0 as f32, v0 as f32, sample00),
+                (u0 as f32, v1 as f32, sample01),
+                (u1 as f32, v0 as f32, sample10),
+                (u1 as f32, v1 as f32, sample11),
+            ];
+
+            bilinear_interpolation(u, v, &points)
+        }
     };
 }
 
@@ -160,11 +192,8 @@ impl EngineObject for YPlane {
             z: (v as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
         }
     }
-    fn sample(&self, pos: Vec3) -> (usize, usize) {
-        (
-            (pos.x.floor() + (MAP_SIZE as f32 / 2.0)) as usize,
-            (pos.z.floor() + (MAP_SIZE as f32 / 2.0)) as usize,
-        )
+    fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
+        (pos.x + (MAP_SIZE as f32 / 2.0), pos.z + (MAP_SIZE as f32 / 2.0))
     }
 }
 
@@ -181,11 +210,8 @@ impl EngineObject for XPlane {
             z: (v as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
         }
     }
-    fn sample(&self, pos: Vec3) -> (usize, usize) {
-        (
-            (pos.y.floor() + (MAP_SIZE as f32 / 2.0)) as usize,
-            (pos.z.floor() + (MAP_SIZE as f32 / 2.0)) as usize,
-        )
+    fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
+        (pos.y + (MAP_SIZE as f32 / 2.0), pos.z + (MAP_SIZE as f32 / 2.0))
     }
 }
 
@@ -202,11 +228,8 @@ impl EngineObject for ZPlane {
             z: self.z,
         }
     }
-    fn sample(&self, pos: Vec3) -> (usize, usize) {
-        (
-            (pos.x.floor() + (MAP_SIZE as f32 / 2.0)) as usize,
-            (pos.y.floor() + (MAP_SIZE as f32 / 2.0)) as usize,
-        )
+    fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
+        (pos.x + (MAP_SIZE as f32 / 2.0), pos.y + (MAP_SIZE as f32 / 2.0))
     }
 }
 

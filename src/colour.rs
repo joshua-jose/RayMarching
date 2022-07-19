@@ -11,7 +11,6 @@ macro_rules! rgb {
     };
 }
 
-
 pub const WHITE: Vec3 = rgb![255, 255, 255];
 pub const SOFT_RED: Vec3 = rgb![214, 81, 81];
 pub const SOFT_GREEN: Vec3 = rgb![81, 214, 81];
@@ -41,3 +40,31 @@ pub fn ACESFilm(mut col: Vec3) -> Vec3 {
     col
 }
 
+// interpolates (x,y) between the 4 points. The 4 points should form a rectangle
+pub fn bilinear_interpolation(x: f32, y: f32, points: &[(f32, f32, Vec3); 4]) -> Vec3 {
+    //let mut sorted_points = points.to_vec();
+
+    /*sort by y values, then x, to get 00,01,10,11 order */
+    //sorted_points.sort_by(|a, b| (&a.1).partial_cmp(&b.1).unwrap());
+    //sorted_points.sort_by(|a, b| (&a.0).partial_cmp(&b.0).unwrap());
+
+    let (x1, y1, q11) = points[0];
+    let (_x1, y2, q12) = points[1];
+    let (x2, _y1, q21) = points[2];
+    let (_x2, _y2, q22) = points[3];
+
+    /*
+    assert_eq!(x1, _x1, "Points do not form a rectangle");
+    assert_eq!(x2, _x2, "Points do not form a rectangle");
+    assert_eq!(y1, _y1, "Points do not form a rectangle");
+    assert_eq!(y2, _y2, "Points do not form a rectangle");
+
+    assert!(x1 <= x, "Point not within rectangle");
+    assert!(x2 >= x, "Point not within rectangle");
+    assert!(y1 <= y, "Point not within rectangle");
+    assert!(y2 >= y, "Point not within rectangle");
+    */
+
+    (q11 * (x2 - x) * (y2 - y) + q21 * (x - x1) * (y2 - y) + q12 * (x2 - x) * (y - y1) + q22 * (x - x1) * (y - y1))
+        / ((x2 - x1) * (y2 - y1))
+}
