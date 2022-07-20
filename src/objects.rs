@@ -136,6 +136,7 @@ macro_rules! plane_funcs {
                 (u1 as f32, v1 as f32, sample11),
             ];
             bilinear_interpolation(u, v, &points)
+            //sample00
         }
     };
 }
@@ -190,9 +191,9 @@ impl EngineObject for YPlane {
     plane_funcs!();
     fn get_sample_pos(&self, u: usize, v: usize) -> Vec3 {
         Vec3 {
-            x: (u as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
+            x: (u as f32) - ((MAP_SIZE as f32) / 2.0),
             y: self.y,
-            z: (v as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
+            z: (v as f32) - ((MAP_SIZE as f32) / 2.0),
         }
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
@@ -209,8 +210,8 @@ impl EngineObject for XPlane {
     fn get_sample_pos(&self, u: usize, v: usize) -> Vec3 {
         Vec3 {
             x: self.x,
-            y: (u as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
-            z: (v as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
+            y: (u as f32) - ((MAP_SIZE as f32) / 2.0),
+            z: (v as f32) - ((MAP_SIZE as f32) / 2.0),
         }
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
@@ -226,8 +227,8 @@ impl EngineObject for ZPlane {
     plane_funcs!();
     fn get_sample_pos(&self, u: usize, v: usize) -> Vec3 {
         Vec3 {
-            x: (u as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
-            y: (v as f32) - ((MAP_SIZE as f32) / 2.0) + 0.5,
+            x: (u as f32) - ((MAP_SIZE as f32) / 2.0),
+            y: (v as f32) - ((MAP_SIZE as f32) / 2.0),
             z: self.z,
         }
     }

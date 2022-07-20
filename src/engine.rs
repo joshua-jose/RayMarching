@@ -169,7 +169,7 @@ impl Engine {
 
             let reflection_vector = direction.reflect(n);
             let reflection_colour =
-                self.cast_sight_ray(position + (reflection_vector * 2.0 * SMALL_DISTANCE), reflection_vector);
+                self.cast_sight_ray(position + (reflection_vector * 3.0 * SMALL_DISTANCE), reflection_vector);
 
             /*
             final_colour = final_colour

@@ -58,10 +58,10 @@ fn main() {
         light: PointLight {
             position: Vec3 {
                 x: 0.0,
-                y: 3.5,
+                y: 3.0,
                 z: -2.5,
             },
-            intensity: 15.0,
+            intensity: 14.0,
         },
     };
 
@@ -99,7 +99,7 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
         Box::new(Sphere {
             position: Vec3 {
                 x: -1.0,
-                y: -0.85,
+                y: -1.0,
                 z: 0.0,
             },
             radius: 1.0,
@@ -115,7 +115,7 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
         Box::new(Sphere {
             position: Vec3 {
                 x: 1.0,
-                y: -0.85,
+                y: -0.99,
                 z: -0.8,
             },
             radius: 1.0,
