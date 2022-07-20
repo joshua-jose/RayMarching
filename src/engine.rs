@@ -243,8 +243,7 @@ impl Engine {
                 break;
             }
         }
-        // TODO: remove 0.3
-        shade.clamp(0.3, 1.0)
+        shade.clamp(0.0, 1.0)
     }
 
     pub fn calculate_normal(position: Vec3, object: &ObjectRef) -> Vec3 {

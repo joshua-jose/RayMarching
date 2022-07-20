@@ -61,7 +61,7 @@ fn main() {
                 y: 3.5,
                 z: -2.5,
             },
-            intensity: 12.0,
+            intensity: 15.0,
         },
     };
 

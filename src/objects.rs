@@ -112,7 +112,6 @@ macro_rules! plane_funcs {
 
         fn sample(&self, pos: Vec3) -> Colour {
             let (u, v) = self.sample_uv_from_pos(pos);
-            let (u, v) = ((u - 1.0).max(0.0), (v - 1.0).max(0.0)); // TODO: fix this
 
             let (u0, v0) = (u.floor() as usize, v.floor() as usize);
             let (u1, v1) = (u0 + 1, v0 + 1);
@@ -124,6 +123,11 @@ macro_rules! plane_funcs {
             let sample01 = self.lightmap.sample_map[u0][v1];
             let sample10 = self.lightmap.sample_map[u1][v0];
             let sample11 = self.lightmap.sample_map[u1][v1];
+
+            /* when creating the array of points, always act as if the sample is from the right/up
+               even if it wasn't
+            */
+            let (u1, v1) = (u0 + 1, v0 + 1);
 
             let points = [
                 (u0 as f32, v0 as f32, sample00),
