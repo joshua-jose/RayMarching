@@ -21,13 +21,14 @@ type ObjectRef = Box<dyn EngineObject>;
 
 static mut N: i32 = 0;
 
-#[inline(always)]
-fn to_pixel_range(i: f32) -> u8 {
-    (255.0 * i).round().clamp(0.0, 255.0) as u8
-}
+#[inline]
+fn to_pixel_range(i: f32) -> u8 { (255.0 * i).round().clamp(0.0, 255.0) as u8 }
+
+#[repr(align(128))]
+pub struct Aligned<T: ?Sized>(pub T);
 
 impl Engine {
-    pub fn render(&self, buffer: &mut [u8], _width: usize) {
+    pub fn render(&self, buffer: &mut [u8], directions: &mut Aligned<Vec<Vec<Vec3>>>) {
         unsafe {
             N += 1;
             //self.camera_position.y = 2.0 + 3.0 * (0.01 * N as f32).sin();
@@ -49,11 +50,6 @@ impl Engine {
         };
         */
 
-        let buffer_pixels =
-            unsafe { std::slice::from_raw_parts_mut(buffer.as_mut_ptr() as *mut Pixel, WIDTH * HEIGHT * 4) };
-
-        let mut directions = vec![Vec::with_capacity(WIDTH); HEIGHT];
-
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
                 // calculate proper y value and pixel uvs
@@ -62,17 +58,20 @@ impl Engine {
                 let v = ((2 * y) as f32 / HEIGHT as f32) - 1.0;
 
                 // array of vectors out of each pixel
-                let direction_vector = Vec3 { x: u, y: v, z: 1.0 }.normalized();
-                directions[y_inv].push(direction_vector);
+                let direction_vector = Vec3::new(u, v, 1.0).normalized();
+                directions.0[y_inv][x] = direction_vector;
             }
         }
 
-        let mut colours: Vec<Vec<Colour>> = vec![Vec::with_capacity(WIDTH); HEIGHT];
+        let buffer_pixels =
+            unsafe { std::slice::from_raw_parts_mut(buffer.as_mut_ptr() as *mut Pixel, WIDTH * HEIGHT * 4) };
+
+        let mut colours = vec![Vec::with_capacity(WIDTH); HEIGHT];
 
         // calculate the linear colour of each pixel
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
-                let colour_linear: Colour = self.cast_sight_ray(self.camera_position, directions[y_inv][x]);
+                let colour_linear: Colour = self.cast_sight_ray(self.camera_position, directions.0[y_inv][x]);
                 colours[y_inv].push(colour_linear);
             }
         }
@@ -80,7 +79,13 @@ impl Engine {
         // perform sRGB colour corrections and tone mapping
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
-                colours[y_inv][x] = ACESFilm(colours[y_inv][x]).sqrt();
+                colours[y_inv][x] = ACESFilm(colours[y_inv][x]);
+            }
+        }
+
+        for y_inv in 0..HEIGHT {
+            for x in 0..WIDTH {
+                colours[y_inv][x] = colours[y_inv][x].sqrt();
             }
         }
 
@@ -112,9 +117,9 @@ impl Engine {
 
                 // transform 0..1 to 0..255
                 buffer_pixels[i] = Pixel {
-                    r: to_pixel_range(colour_tonemapped.z),
-                    g: to_pixel_range(colour_tonemapped.y),
-                    b: to_pixel_range(colour_tonemapped.x),
+                    r: to_pixel_range(colour_tonemapped.z()),
+                    g: to_pixel_range(colour_tonemapped.y()),
+                    b: to_pixel_range(colour_tonemapped.x()),
                     a: 0,
                 };
             }
@@ -355,7 +360,7 @@ impl Engine {
 }
 
 pub struct Engine {
-    pub objects: Vec<ObjectRef>,
+    pub objects:         Vec<ObjectRef>,
     pub camera_position: Vec3,
-    pub light: PointLight,
+    pub light:           PointLight,
 }

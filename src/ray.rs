@@ -7,20 +7,21 @@ use crate::{
 type ObjectRef = Box<dyn EngineObject>;
 
 pub struct Ray {
-    pub position: Vec3,
+    pub position:  Vec3,
     pub direction: Vec3,
 }
 
 impl Ray {
     pub fn march(&mut self, objects: &Vec<ObjectRef>, ignore_object: Option<usize>) -> Option<usize> {
         let mut distance_travelled = 0.0;
+        let ignore_index = ignore_object.unwrap_or(usize::MAX);
 
         while distance_travelled < MAX_MARCH_DISTANCE {
             let mut distance = f32::INFINITY;
             let mut closest_object: usize = usize::MAX;
 
             for (i, object) in objects.iter().enumerate() {
-                if ignore_object.unwrap_or(usize::MAX) == i {
+                if ignore_index == i {
                     continue;
                 }
 

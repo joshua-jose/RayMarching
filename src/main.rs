@@ -1,3 +1,6 @@
+#![feature(portable_simd)]
+#![feature(core_intrinsics)]
+
 #[macro_use]
 mod colour;
 mod engine;
@@ -17,6 +20,11 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Instant;
 use vector::Vec3;
+
+use crate::engine::Aligned;
+
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() {
     println!("Hello, world!");
@@ -50,23 +58,16 @@ fn main() {
     let objs = construct_objects();
 
     let mut engine = Engine {
-        objects: objs,
-        camera_position: Vec3 {
-            x: 0.0,
-            y: 0.5,
-            z: -3.5,
-        },
-        light: PointLight {
-            position: Vec3 {
-                x: 0.0,
-                y: 3.0,
-                z: -2.5,
-            },
+        objects:         objs,
+        camera_position: Vec3::new(0.0, 0.5, -3.5),
+        light:           PointLight {
+            position:  Vec3::new(0.0, 3.0, -2.5),
             intensity: 14.0,
         },
     };
 
     engine.compute_radiosity();
+    let mut directions = Aligned(vec![vec![Vec3::default(); WIDTH]; HEIGHT]);
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -81,8 +82,8 @@ fn main() {
         }
         let now = Instant::now();
         texture
-            .with_lock(None, |buffer, width| {
-                engine.render(buffer, width);
+            .with_lock(None, |buffer, _width| {
+                engine.render(buffer, &mut directions);
             })
             .unwrap(); // update texture
 
@@ -98,36 +99,28 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
 
     vec![
         Box::new(Sphere {
-            position: Vec3 {
-                x: -1.0,
-                y: -1.0,
-                z: 0.0,
-            },
-            radius: 1.0,
+            position: Vec3::new(-1.0, -1.0, 0.0),
+            radius:   1.0,
             material: Material {
-                ambient: 0.05,
-                diffuse: 0.03,
-                specular: 0.2,
-                shininess: 16.0,
+                ambient:      0.05,
+                diffuse:      0.03,
+                specular:     0.2,
+                shininess:    16.0,
                 reflectivity: 1.0,
             },
-            colour: WHITE,
+            colour:   WHITE,
         }),
         Box::new(Sphere {
-            position: Vec3 {
-                x: 1.0,
-                y: -1.0,
-                z: -0.8,
-            },
-            radius: 1.0,
+            position: Vec3::new(1.0, -1.0, -0.8),
+            radius:   1.0,
             material: Material {
-                ambient: 0.1,
-                diffuse: 1.0,
-                specular: 0.9,
-                shininess: 32.0,
+                ambient:      0.1,
+                diffuse:      1.0,
+                specular:     0.9,
+                shininess:    32.0,
                 reflectivity: 0.3,
             },
-            colour: SOFT_YELLOW,
+            colour:   SOFT_YELLOW,
         }),
         Box::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY)),
         Box::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY)),

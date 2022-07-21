@@ -36,9 +36,9 @@ pub fn ACESFilm(mut col: Vec3) -> Vec3 {
     let d: f32 = 0.59;
     let e: f32 = 0.14;
     let map_colours = |x: f32| ((x * (a * x + b)) / (x * (c * x + d) + e));
-    col.x = map_colours(col.x);
-    col.y = map_colours(col.y);
-    col.z = map_colours(col.z);
+    col.0[0] = map_colours(col.x());
+    col.0[1] = map_colours(col.y());
+    col.0[2] = map_colours(col.z());
     col
 }
 

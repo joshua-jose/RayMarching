@@ -7,53 +7,16 @@ use super::vector::Vec3;
 use Vec3 as Colour;
 
 const STEP_SIZE: f32 = 0.0001;
-const X_STEP: Vec3 = Vec3 {
-    x: STEP_SIZE,
-    y: 0.0,
-    z: 0.0,
-};
-const Y_STEP: Vec3 = Vec3 {
-    x: 0.0,
-    y: STEP_SIZE,
-    z: 0.0,
-};
-const Z_STEP: Vec3 = Vec3 {
-    x: 0.0,
-    y: 0.0,
-    z: STEP_SIZE,
-};
-/*
-const TETRA_STEP: f32 = 0.0015;
-const STEP_A: Vec3 = Vec3 {
-    x: TETRA_STEP,
-    y: -TETRA_STEP,
-    z: -TETRA_STEP,
-};
-const STEP_B: Vec3 = Vec3 {
-    x: -TETRA_STEP,
-    y: -TETRA_STEP,
-    z: TETRA_STEP,
-};
-const STEP_C: Vec3 = Vec3 {
-    x: -TETRA_STEP,
-    y: TETRA_STEP,
-    z: -TETRA_STEP,
-};
-const STEP_D: Vec3 = Vec3 {
-    x: TETRA_STEP,
-    y: TETRA_STEP,
-    z: TETRA_STEP,
-};
-*/
+const X_STEP: Vec3 = Vec3::new(STEP_SIZE, 0.0, 0.0);
+const Y_STEP: Vec3 = Vec3::new(0.0, STEP_SIZE, 0.0);
+const Z_STEP: Vec3 = Vec3::new(0.0, 0.0, STEP_SIZE);
 
 /*
-// cheaper tetrahedral normal
-vec2 e = vec2(.0015, -.0015);
-return normalize(
-    e.xyy * map(p + e.xyy) +
-    e.yyx * map(p + e.yyx) +
-    e.yxy * map(p + e.yxy) +
-    e.xxx * map(p + e.xxx));
+const TETRA_STEP: f32 = 0.0015;
+const STEP_A: Vec3 = Vec3::new(TETRA_STEP, -TETRA_STEP, -TETRA_STEP);
+const STEP_B: Vec3 = Vec3::new(-TETRA_STEP, -TETRA_STEP, TETRA_STEP);
+const STEP_C: Vec3 = Vec3::new(-TETRA_STEP, TETRA_STEP, -TETRA_STEP);
+const STEP_D: Vec3 = Vec3::new(TETRA_STEP, TETRA_STEP, TETRA_STEP);
 */
 
 pub trait EngineObject {
@@ -62,44 +25,31 @@ pub trait EngineObject {
     fn material(&self) -> &Material;
 
     // all objects have a default implementation of no lightmap
-    fn get_lightmap(&self) -> Option<&Lightmap> {
-        None
-    }
+    fn get_lightmap(&self) -> Option<&Lightmap> { None }
     fn set_lightmap(&mut self, _new_lightmap: Lightmap) {}
     fn clear_lightmap(&mut self) {}
 
     // for a given uv coordinate, get the world space coordinate
-    fn get_sample_pos(&self, _u: usize, _v: usize) -> Vec3 {
-        unimplemented!()
-    }
+    fn get_sample_pos(&self, _u: usize, _v: usize) -> Vec3 { unimplemented!() }
 
     // for a given world position, return the uv coordinates on the texture
-    fn sample_uv_from_pos(&self, _pos: Vec3) -> (f32, f32) {
-        unimplemented!()
-    }
+    fn sample_uv_from_pos(&self, _pos: Vec3) -> (f32, f32) { unimplemented!() }
 
     // for a given world position, sample the lightmap at that point
-    fn sample(&self, _pos: Vec3) -> Colour {
-        unimplemented!()
-    }
+    fn sample(&self, _pos: Vec3) -> Colour { unimplemented!() }
 
     fn calculate_normal(&self, position: Vec3) -> Vec3 {
         let gradient_x = self.sdf(position + X_STEP) - self.sdf(position - X_STEP);
         let gradient_y = self.sdf(position + Y_STEP) - self.sdf(position - Y_STEP);
         let gradient_z = self.sdf(position + Z_STEP) - self.sdf(position - Z_STEP);
 
-        Vec3 {
-            x: gradient_x,
-            y: gradient_y,
-            z: gradient_z,
-        }
-        .normalized()
+        Vec3::new(gradient_x, gradient_y, gradient_z).normalized()
 
         /*
-        let norm = STEP_A * object.sdf(position + STEP_A)
-            + STEP_B * object.sdf(position + STEP_B)
-            + STEP_C * object.sdf(position + STEP_C)
-            + STEP_D * object.sdf(position + STEP_D);
+        let norm = STEP_A * self.sdf(position + STEP_A)
+            + STEP_B * self.sdf(position + STEP_B)
+            + STEP_C * self.sdf(position + STEP_C)
+            + STEP_D * self.sdf(position + STEP_D);
 
         norm.normalized()
         */
@@ -114,73 +64,63 @@ pub trait EngineLight {
 #[derive(Clone, Copy)]
 pub struct Sphere {
     pub position: Vec3,
-    pub radius: f32,
+    pub radius:   f32,
     pub material: Material,
-    pub colour: Colour,
+    pub colour:   Colour,
 }
 
 #[derive(Clone, Copy, Default)]
 pub struct Plane {
-    pub normal: Vec3,
+    pub normal:   Vec3,
     pub distance: f32,
 
     pub material: Material,
-    pub colour: Colour,
+    pub colour:   Colour,
     pub lightmap: Lightmap,
 }
 
 #[derive(Clone, Copy, Default)]
 pub struct XPlane {
-    pub x: f32,
-    pub dir: f32,
+    pub x:        f32,
+    pub dir:      f32,
     pub material: Material,
-    pub colour: Colour,
+    pub colour:   Colour,
     pub lightmap: Lightmap,
 }
 
 #[derive(Clone, Copy, Default)]
 pub struct YPlane {
-    pub y: f32,
-    pub dir: f32,
+    pub y:        f32,
+    pub dir:      f32,
     pub material: Material,
-    pub colour: Colour,
+    pub colour:   Colour,
     pub lightmap: Lightmap,
 }
 
 #[derive(Clone, Copy, Default)]
 pub struct ZPlane {
-    pub z: f32,
-    pub dir: f32,
+    pub z:        f32,
+    pub dir:      f32,
     pub material: Material,
-    pub colour: Colour,
+    pub colour:   Colour,
     pub lightmap: Lightmap,
 }
 
 #[derive(Clone, Copy)]
 pub struct PointLight {
-    pub position: Vec3,
+    pub position:  Vec3,
     pub intensity: f32,
 }
 
 macro_rules! plane_funcs {
     () => {
-        fn colour(&self, _position: Vec3) -> Colour {
-            self.colour
-        }
-        fn material(&self) -> &Material {
-            &self.material
-        }
+        fn colour(&self, _position: Vec3) -> Colour { self.colour }
+        fn material(&self) -> &Material { &self.material }
 
         // all objects have a default implementation of no lightmap
-        fn get_lightmap(&self) -> Option<&Lightmap> {
-            Some(&self.lightmap)
-        }
-        fn set_lightmap(&mut self, new_lightmap: Lightmap) {
-            self.lightmap = new_lightmap;
-        }
-        fn clear_lightmap(&mut self) {
-            self.lightmap = Lightmap::default()
-        }
+        fn get_lightmap(&self) -> Option<&Lightmap> { Some(&self.lightmap) }
+        fn set_lightmap(&mut self, new_lightmap: Lightmap) { self.lightmap = new_lightmap; }
+        fn clear_lightmap(&mut self) { self.lightmap = Lightmap::default() }
 
         fn sample(&self, pos: Vec3) -> Colour {
             let (u, v) = self.sample_uv_from_pos(pos);
@@ -248,78 +188,64 @@ impl ZPlane {
 }
 
 impl EngineObject for Plane {
-    fn sdf(&self, position: Vec3) -> f32 {
-        position.dot(self.normal) - self.distance
-    }
+    fn sdf(&self, position: Vec3) -> f32 { position.dot(self.normal) - self.distance }
 
     plane_funcs!();
 }
 
 impl EngineObject for YPlane {
-    fn sdf(&self, position: Vec3) -> f32 {
-        self.dir * (position.y - self.y)
-    }
+    fn sdf(&self, position: Vec3) -> f32 { self.dir * (position.y() - self.y) }
 
     plane_funcs!();
     fn get_sample_pos(&self, u: usize, v: usize) -> Vec3 {
-        Vec3 {
-            x: (u as f32) - ((MAP_SIZE as f32) / 2.0),
-            y: self.y,
-            z: (v as f32) - ((MAP_SIZE as f32) / 2.0),
-        }
+        Vec3::new(
+            (u as f32) - ((MAP_SIZE as f32) / 2.0),
+            self.y,
+            (v as f32) - ((MAP_SIZE as f32) / 2.0),
+        )
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
-        (pos.x + (MAP_SIZE as f32 / 2.0), pos.z + (MAP_SIZE as f32 / 2.0))
+        (pos.x() + (MAP_SIZE as f32 / 2.0), pos.z() + (MAP_SIZE as f32 / 2.0))
     }
 }
 
 impl EngineObject for XPlane {
-    fn sdf(&self, position: Vec3) -> f32 {
-        self.dir * (position.x - self.x)
-    }
+    fn sdf(&self, position: Vec3) -> f32 { self.dir * (position.x() - self.x) }
 
     plane_funcs!();
     fn get_sample_pos(&self, u: usize, v: usize) -> Vec3 {
-        Vec3 {
-            x: self.x,
-            y: (u as f32) - ((MAP_SIZE as f32) / 2.0),
-            z: (v as f32) - ((MAP_SIZE as f32) / 2.0),
-        }
+        Vec3::new(
+            self.x,
+            (u as f32) - ((MAP_SIZE as f32) / 2.0),
+            (v as f32) - ((MAP_SIZE as f32) / 2.0),
+        )
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
-        (pos.y + (MAP_SIZE as f32 / 2.0), pos.z + (MAP_SIZE as f32 / 2.0))
+        (pos.y() + (MAP_SIZE as f32 / 2.0), pos.z() + (MAP_SIZE as f32 / 2.0))
     }
 }
 
 impl EngineObject for ZPlane {
-    fn sdf(&self, position: Vec3) -> f32 {
-        self.dir * (position.z - self.z)
-    }
+    fn sdf(&self, position: Vec3) -> f32 { self.dir * (position.z() - self.z) }
 
     plane_funcs!();
     fn get_sample_pos(&self, u: usize, v: usize) -> Vec3 {
-        Vec3 {
-            x: (u as f32) - ((MAP_SIZE as f32) / 2.0),
-            y: (v as f32) - ((MAP_SIZE as f32) / 2.0),
-            z: self.z,
-        }
+        Vec3::new(
+            (u as f32) - ((MAP_SIZE as f32) / 2.0),
+            (v as f32) - ((MAP_SIZE as f32) / 2.0),
+            self.z,
+        )
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
-        (pos.x + (MAP_SIZE as f32 / 2.0), pos.y + (MAP_SIZE as f32 / 2.0))
+        (pos.x() + (MAP_SIZE as f32 / 2.0), pos.y() + (MAP_SIZE as f32 / 2.0))
     }
 }
 
 impl EngineObject for Sphere {
-    fn sdf(&self, position: Vec3) -> f32 {
-        (position - self.position).mag() - self.radius
-    }
+    fn sdf(&self, position: Vec3) -> f32 { (position - self.position).mag() - self.radius }
 
-    fn colour(&self, _position: Vec3) -> Colour {
-        self.colour
-    }
-    fn material(&self) -> &Material {
-        &self.material
-    }
+    fn colour(&self, _position: Vec3) -> Colour { self.colour }
+    fn material(&self) -> &Material { &self.material }
 }
 
 // box
@@ -333,11 +259,7 @@ p.x.max(p.y.max(p.z)) - 1.0 + p.dot(p) * 0.2
 */
 
 impl EngineLight for PointLight {
-    fn get_position(&self) -> Vec3 {
-        self.position
-    }
+    fn get_position(&self) -> Vec3 { self.position }
 
-    fn get_intensity(&self) -> f32 {
-        self.intensity
-    }
+    fn get_intensity(&self) -> f32 { self.intensity }
 }

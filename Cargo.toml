@@ -8,3 +8,9 @@ edition = "2018"
 
 [dependencies]
 sdl2 = "0.35"
+mimalloc = { version = "0.1.17", default-features = false }
+
+[profile.release]
+codegen-units = 1
+panic = "abort"
+# debug = true
