@@ -36,7 +36,7 @@ pub trait EngineObject {
     fn sample_uv_from_pos(&self, _pos: Vec3) -> (f32, f32) { unimplemented!() }
 
     // for a given world position, sample the lightmap at that point
-    fn sample(&self, _pos: Vec3) -> Colour { unimplemented!() }
+    fn sample_lightmap(&self, _pos: Vec3) -> Colour { unimplemented!() }
 
     fn calculate_normal(&self, position: Vec3) -> Vec3 {
         let gradient_x = self.sdf(position + X_STEP) - self.sdf(position - X_STEP);
@@ -122,7 +122,7 @@ macro_rules! plane_funcs {
         fn set_lightmap(&mut self, new_lightmap: Lightmap) { self.lightmap = new_lightmap; }
         fn clear_lightmap(&mut self) { self.lightmap = Lightmap::default() }
 
-        fn sample(&self, pos: Vec3) -> Colour {
+        fn sample_lightmap(&self, pos: Vec3) -> Colour {
             let (u, v) = self.sample_uv_from_pos(pos);
 
             let (u0, v0) = (u.floor() as usize, v.floor() as usize);

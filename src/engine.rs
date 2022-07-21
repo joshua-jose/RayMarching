@@ -1,6 +1,5 @@
-use std::f32::consts::PI;
-
 use crate::colour::phong_ds;
+use crate::radiosity::{compute_direct_lighting, compute_object_radiosity};
 
 use super::colour::{ACESFilm, Pixel};
 use super::objects::{EngineLight, EngineObject, PointLight};
@@ -17,7 +16,7 @@ pub const SMALL_DISTANCE: f32 = 0.001;
 pub const MAX_SHAD_IT: u32 = 16;
 pub const SKY_COLOUR: Vec3 = rgb![135, 206, 235];
 
-type ObjectRef = Box<dyn EngineObject>;
+pub type ObjectRef = Box<dyn EngineObject>;
 
 static mut N: i32 = 0;
 
@@ -71,6 +70,20 @@ impl Engine {
         // calculate the linear colour of each pixel
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
+                /*
+                let mut ssaa_colours: [Vec3; 4] = [Default::default(); 4];
+                let offsets: [Vec3; 4] = [
+                    Vec3::new(0.5 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
+                    Vec3::new(-0.5 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
+                    Vec3::new(0.0 / WIDTH as f32, 0.5 / HEIGHT as f32, 0.0),
+                    Vec3::new(0.0 / WIDTH as f32, -0.5 / HEIGHT as f32, 0.0),
+                ];
+                for i in 0..4 {
+                    ssaa_colours[i] =
+                        self.cast_sight_ray(self.camera_position, (directions.0[y_inv][x] + offsets[i]).normalized());
+                }
+                let colour_linear = (ssaa_colours[0] + ssaa_colours[1] + ssaa_colours[2] + ssaa_colours[3]) / 4.0;
+                */
                 let colour_linear: Colour = self.cast_sight_ray(self.camera_position, directions.0[y_inv][x]);
                 colours[y_inv].push(colour_linear);
             }
@@ -93,26 +106,6 @@ impl Engine {
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
                 let i = y_inv * WIDTH + x;
-
-                /*
-                let mut colours: [Vec3; 5] = [Default::default(); 5];
-                let offsets: [Vec3; 5] = [
-                    Vec3::new(0.5 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
-                    Vec3::new(-0.5 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
-                    Vec3::new(0.0 / WIDTH as f32, 0.5 / HEIGHT as f32, 0.0),
-                    Vec3::new(0.0 / WIDTH as f32, -0.5 / HEIGHT as f32, 0.0),
-                    Vec3::new(0.0 / WIDTH as f32, 0.0 / HEIGHT as f32, 0.0),
-                ];
-                for i in 0..5 {
-                    colours[i] = self.cast_sight_ray(
-                        self.camera_position,
-                        (Vec3 { x: u, y: v, z: 1.0 } + offsets[i]).normalized(),
-                    );
-                }
-                let colour_linear =
-                    (colours[0] + colours[1] + colours[2] + colours[3] + colours[4]) / 5.0;
-
-                */
                 let colour_tonemapped = colours[y_inv][x];
 
                 // transform 0..1 to 0..255
@@ -154,7 +147,7 @@ impl Engine {
         let ambient: Colour;
         match object.get_lightmap() {
             None => ambient = object_colour * object_mat.ambient,
-            Some(_) => ambient = object.sample(position),
+            Some(_) => ambient = object.sample_lightmap(position),
         }
         //let ambient = object_colour * object_mat.ambient;
 
@@ -199,7 +192,7 @@ impl Engine {
         final_colour
     }
 
-    pub fn compute_radiosity(&mut self) {
+    pub fn compute_lightmaps(&mut self) {
         self.objects.iter_mut().for_each(|x| x.clear_lightmap());
 
         // get all objects with a lightmap
@@ -214,6 +207,7 @@ impl Engine {
         // map of every sample point's position in the world
         let mut point_cloud: Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]> = vec![];
         point_cloud.resize(obj_indexes.len(), [[Vec3::default(); MAP_SIZE]; MAP_SIZE]);
+        // map of every sample point's colour
         let mut colour_cloud: Vec<[[Colour; MAP_SIZE]; MAP_SIZE]> = vec![];
         colour_cloud.resize(obj_indexes.len(), [[Colour::default(); MAP_SIZE]; MAP_SIZE]);
 
@@ -228,123 +222,28 @@ impl Engine {
             }
         }
 
-        let light_pos = self.light.get_position();
-        let light_intensity = self.light.get_intensity();
+        let mut emissive_maps =
+            compute_direct_lighting(&self.light, &obj_indexes, &self.objects, &point_cloud, &colour_cloud);
 
-        let mut emissive_maps: Vec<Lightmap> = Vec::new();
-        emissive_maps.reserve(obj_indexes.len());
+        // TODO: generate occlusion matrix from point cloud
 
-        // direct lighting stage
-        for (cloud_index, &obj_index) in obj_indexes.iter().enumerate() {
-            let object = &self.objects[obj_index];
-            let mut emissive_map = Lightmap::default();
+        let mut lightmaps: Vec<Lightmap> = Vec::new();
+        lightmaps.reserve(obj_indexes.len());
 
-            for x in 0..MAP_SIZE {
-                for y in 0..MAP_SIZE {
-                    let origin = point_cloud[cloud_index][x][y];
+        let mut new_emissive_maps: Vec<Lightmap> = Vec::new();
+        new_emissive_maps.reserve(obj_indexes.len());
 
-                    let vector_to_light = light_pos - origin;
-                    let distance_to_light = vector_to_light.mag();
-                    let vector_to_light = vector_to_light / distance_to_light;
-
-                    /*
-                    let mut shadow_ray = Ray {
-                        position: origin,
-                        direction: vector_to_light,
-                    };
-                    let _ = self.march(&mut shadow_ray, Some(obj_index));
-
-                    if (shadow_ray.position - origin).mag() >= distance_to_light {
-                        let n = Engine::calculate_normal(origin, object);
-                        let diffuse =
-                            n.dot(shadow_ray.direction).max(0.0) * light_intensity / (distance_to_light + 1.0).powi(2);
-
-                        lightmap.sample_map[x][y] = object.colour(origin) * diffuse;
-                    }
-                    */
-
-                    let n = object.calculate_normal(origin);
-                    let diffuse = n.dot(vector_to_light).max(0.0) * light_intensity / (distance_to_light + 1.0).powi(2);
-
-                    emissive_map.sample_map[x][y] = object.colour(origin) * diffuse;
-                }
-            }
-            emissive_maps.push(emissive_map);
-            //self.objects[obj_index].set_lightmap(emissive_map);
-        }
-
-        // generate occlusion matrix from point cloud
         // light bounces
         for _ in 0..2 {
-            let mut lightmaps: Vec<Lightmap> = Vec::new();
-            lightmaps.reserve(obj_indexes.len());
+            lightmaps.clear();
+            new_emissive_maps.clear();
 
-            let mut new_emissive_maps: Vec<Lightmap> = Vec::new();
-            new_emissive_maps.reserve(obj_indexes.len());
+            for (obj_cloud_index, &obj_eng_index) in obj_indexes.iter().enumerate() {
+                let object = &self.objects[obj_eng_index];
 
-            for (lit_cloud_index, &lit_obj_index) in obj_indexes.iter().enumerate() {
-                let lit_object = &self.objects[lit_obj_index];
-                let mut lit_lightmap = lit_object.get_lightmap().unwrap().clone();
-                let mut new_emissive_map = Lightmap::default();
+                let (lit_lightmap, new_emissive_map) =
+                    compute_object_radiosity(object, obj_cloud_index, &point_cloud, &colour_cloud, &emissive_maps);
 
-                for x in 0..MAP_SIZE {
-                    for y in 0..MAP_SIZE {
-                        // patch we are lighting
-                        let origin = point_cloud[lit_cloud_index][x][y];
-                        let lit_point_colour = colour_cloud[lit_cloud_index][x][y];
-                        let n_lit = lit_object.calculate_normal(origin);
-                        let mut incident: Colour = Colour::new(0.0, 0.0, 0.0);
-
-                        for (lighting_cloud_index, &lighting_obj_index) in obj_indexes.iter().enumerate() {
-                            // get light output from this patch
-                            if lit_obj_index == lighting_obj_index {
-                                continue;
-                            }
-                            //let lighting_object = &self.objects[lighting_obj_index];
-                            //let lighting_lightmap = lighting_object.get_lightmap().unwrap().clone();
-                            let lighting_lightmap = emissive_maps[lighting_cloud_index];
-
-                            for a in 0..MAP_SIZE {
-                                for b in 0..MAP_SIZE {
-                                    // patch we are lighting
-                                    let light_source = point_cloud[lighting_cloud_index][a][b];
-                                    let light_colour = lighting_lightmap.sample_map[a][b];
-
-                                    let vector_to_light = light_source - origin;
-                                    let distance_to_light = vector_to_light.mag();
-                                    let vector_to_light = vector_to_light / distance_to_light;
-
-                                    /*
-                                    let mut shadow_ray = Ray {
-                                        position: origin,
-                                        direction: vector_to_light,
-                                    };
-                                    let hit = self.march(&mut shadow_ray, Some(lit_obj_index));
-
-
-                                    if hit.is_some() {
-                                        if hit.unwrap() == lighting_obj_index {
-                                            let diffuse = n_lit.dot(shadow_ray.direction).max(0.0) * 1.0
-                                                / (distance_to_light + 1.0).powi(2);
-                                            incident += light_colour.element_mul(lit_point_colour) * diffuse;
-                                        }
-                                    }
-                                    */
-                                    let diffuse =
-                                        n_lit.dot(vector_to_light).max(0.0) * 1.0 / (distance_to_light + 1.0).powi(2);
-                                    incident += light_colour.element_mul(lit_point_colour) * diffuse;
-                                }
-                            }
-                            // scale by surface area of the patches
-                            //incident = incident / ((MAP_SIZE * MAP_SIZE) as f32);
-                        }
-                        // "because calculus"
-                        lit_lightmap.sample_map[x][y] += incident.element_mul(incident) / PI;
-                        new_emissive_map.sample_map[x][y] = incident.element_mul(incident) / PI;
-                        //emissive_maps[lit_cloud_index].sample_map[x][y] += incident / PI;
-                        //println!("{}", lit_lightmap.sample_map[x][y]);
-                    }
-                }
                 lightmaps.push(lit_lightmap);
                 new_emissive_maps.push(new_emissive_map);
             }
@@ -354,8 +253,6 @@ impl Engine {
                 emissive_maps[cloud_index] = new_emissive_maps[cloud_index];
             }
         }
-
-        // for each bounce, copy all light maps and recompute them
     }
 }
 

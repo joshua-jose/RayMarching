@@ -66,7 +66,7 @@ fn main() {
         },
     };
 
-    engine.compute_radiosity();
+    engine.compute_lightmaps();
     let mut directions = Aligned(vec![vec![Vec3::default(); WIDTH]; HEIGHT]);
 
     'running: loop {
