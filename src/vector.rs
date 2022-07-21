@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::{Add, Div, Mul, Neg, Sub, AddAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 #[derive(Debug, Default, Clone, Copy)]
 #[repr(C)]
@@ -33,6 +33,14 @@ impl Vec3 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
+    pub fn sqrt(&self) -> Vec3 {
+        Vec3 {
+            x: self.x.sqrt(),
+            y: self.y.sqrt(),
+            z: self.z.sqrt(),
+        }
+    }
+
     pub fn element_mul(&self, other: Vec3) -> Vec3 {
         Vec3 {
             x: self.x * other.x,
@@ -64,7 +72,7 @@ impl Add for Vec3 {
     }
 }
 
-impl AddAssign for Vec3{
+impl AddAssign for Vec3 {
     fn add_assign(&mut self, rhs: Self) {
         self.x += rhs.x;
         self.y += rhs.y;

@@ -1,3 +1,5 @@
+use crate::material::Material;
+
 use super::Vec3;
 
 #[macro_export]
@@ -53,7 +55,6 @@ pub fn bilinear_interpolation(x: f32, y: f32, points: &[(f32, f32, Vec3); 4]) ->
     let (x2, _y1, q21) = points[2];
     let (_x2, _y2, q22) = points[3];
 
-    /*
     assert_eq!(x1, _x1, "Points do not form a rectangle");
     assert_eq!(x2, _x2, "Points do not form a rectangle");
     assert_eq!(y1, _y1, "Points do not form a rectangle");
@@ -63,8 +64,34 @@ pub fn bilinear_interpolation(x: f32, y: f32, points: &[(f32, f32, Vec3); 4]) ->
     assert!(x2 >= x, "Point not within rectangle");
     assert!(y1 <= y, "Point not within rectangle");
     assert!(y2 >= y, "Point not within rectangle");
-    */
 
     (q11 * (x2 - x) * (y2 - y) + q21 * (x - x1) * (y2 - y) + q12 * (x2 - x) * (y - y1) + q22 * (x - x1) * (y - y1))
         / ((x2 - x1) * (y2 - y1))
+}
+
+// Phong diffuse and specular shading
+pub fn phong_ds(
+    n: Vec3, vector_to_light: Vec3, distance_to_light: f32, light_intensity: f32, object_mat: &Material,
+    view_direction: Vec3,
+) -> (f32, f32) {
+    let diffuse: f32;
+    let specular: f32;
+
+    let light_reflection_vector = vector_to_light.reflect(n);
+    let light_intensity = light_intensity / (distance_to_light + 1.0).powi(2); // k/d^2
+
+    // Phong shading algorithm
+    diffuse = object_mat.diffuse * light_intensity * vector_to_light.dot(n).max(0.0);
+    if diffuse > 0.0 {
+        specular = object_mat.specular
+            * light_intensity
+            * light_reflection_vector
+                .dot(view_direction)
+                .max(0.0)
+                .powf(object_mat.shininess);
+    } else {
+        specular = 0.0;
+    }
+
+    (diffuse, specular)
 }

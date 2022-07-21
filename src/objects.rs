@@ -6,10 +6,60 @@ use super::radiosity::Lightmap;
 use super::vector::Vec3;
 use Vec3 as Colour;
 
+const STEP_SIZE: f32 = 0.0001;
+const X_STEP: Vec3 = Vec3 {
+    x: STEP_SIZE,
+    y: 0.0,
+    z: 0.0,
+};
+const Y_STEP: Vec3 = Vec3 {
+    x: 0.0,
+    y: STEP_SIZE,
+    z: 0.0,
+};
+const Z_STEP: Vec3 = Vec3 {
+    x: 0.0,
+    y: 0.0,
+    z: STEP_SIZE,
+};
+/*
+const TETRA_STEP: f32 = 0.0015;
+const STEP_A: Vec3 = Vec3 {
+    x: TETRA_STEP,
+    y: -TETRA_STEP,
+    z: -TETRA_STEP,
+};
+const STEP_B: Vec3 = Vec3 {
+    x: -TETRA_STEP,
+    y: -TETRA_STEP,
+    z: TETRA_STEP,
+};
+const STEP_C: Vec3 = Vec3 {
+    x: -TETRA_STEP,
+    y: TETRA_STEP,
+    z: -TETRA_STEP,
+};
+const STEP_D: Vec3 = Vec3 {
+    x: TETRA_STEP,
+    y: TETRA_STEP,
+    z: TETRA_STEP,
+};
+*/
+
+/*
+// cheaper tetrahedral normal
+vec2 e = vec2(.0015, -.0015);
+return normalize(
+    e.xyy * map(p + e.xyy) +
+    e.yyx * map(p + e.yyx) +
+    e.yxy * map(p + e.yxy) +
+    e.xxx * map(p + e.xxx));
+*/
+
 pub trait EngineObject {
     fn sdf(&self, position: Vec3) -> f32;
     fn colour(&self, position: Vec3) -> Colour;
-    fn material(&self) -> Material;
+    fn material(&self) -> &Material;
 
     // all objects have a default implementation of no lightmap
     fn get_lightmap(&self) -> Option<&Lightmap> {
@@ -31,6 +81,28 @@ pub trait EngineObject {
     // for a given world position, sample the lightmap at that point
     fn sample(&self, _pos: Vec3) -> Colour {
         unimplemented!()
+    }
+
+    fn calculate_normal(&self, position: Vec3) -> Vec3 {
+        let gradient_x = self.sdf(position + X_STEP) - self.sdf(position - X_STEP);
+        let gradient_y = self.sdf(position + Y_STEP) - self.sdf(position - Y_STEP);
+        let gradient_z = self.sdf(position + Z_STEP) - self.sdf(position - Z_STEP);
+
+        Vec3 {
+            x: gradient_x,
+            y: gradient_y,
+            z: gradient_z,
+        }
+        .normalized()
+
+        /*
+        let norm = STEP_A * object.sdf(position + STEP_A)
+            + STEP_B * object.sdf(position + STEP_B)
+            + STEP_C * object.sdf(position + STEP_C)
+            + STEP_D * object.sdf(position + STEP_D);
+
+        norm.normalized()
+        */
     }
 }
 
@@ -95,8 +167,8 @@ macro_rules! plane_funcs {
         fn colour(&self, _position: Vec3) -> Colour {
             self.colour
         }
-        fn material(&self) -> Material {
-            self.material
+        fn material(&self) -> &Material {
+            &self.material
         }
 
         // all objects have a default implementation of no lightmap
@@ -245,8 +317,8 @@ impl EngineObject for Sphere {
     fn colour(&self, _position: Vec3) -> Colour {
         self.colour
     }
-    fn material(&self) -> Material {
-        self.material
+    fn material(&self) -> &Material {
+        &self.material
     }
 }
 

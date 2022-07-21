@@ -4,6 +4,7 @@ mod engine;
 mod material;
 mod objects;
 mod radiosity;
+mod ray;
 mod vector;
 
 extern crate sdl2;
@@ -115,7 +116,7 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
         Box::new(Sphere {
             position: Vec3 {
                 x: 1.0,
-                y: -0.99,
+                y: -1.0,
                 z: -0.8,
             },
             radius: 1.0,
