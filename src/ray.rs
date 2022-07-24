@@ -41,6 +41,35 @@ impl Ray {
         return None;
     }
 
+    pub fn radiosity_march(&mut self, objects: &Vec<ObjectRef>, ignore_object: Option<usize>) -> Option<usize> {
+        let mut distance_travelled = 0.0;
+        let ignore_index = ignore_object.unwrap_or(usize::MAX);
+
+        while distance_travelled < MAX_MARCH_DISTANCE {
+            let mut distance = f32::INFINITY;
+            let mut closest_object: usize = usize::MAX;
+
+            for (i, object) in objects.iter().enumerate() {
+                if ignore_index == i || !object.radiosity_collide() {
+                    continue;
+                }
+
+                let obj_distance = object.sdf(self.position);
+                if obj_distance < distance {
+                    distance = obj_distance;
+                    closest_object = i;
+                };
+            }
+            if distance < SMALL_DISTANCE {
+                return Some(closest_object);
+            }
+
+            distance_travelled += distance;
+            self.position += self.direction * distance;
+        }
+        return None;
+    }
+
     pub fn smooth_shadow_march(
         &mut self, objects: &Vec<ObjectRef>, ignore_obj_index: usize, light_dist: f32, shading_k: f32,
     ) -> f32 {

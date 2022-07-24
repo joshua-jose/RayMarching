@@ -147,7 +147,7 @@ impl Engine {
         let ambient: Colour;
         match object.get_lightmap() {
             None => ambient = object_colour * object_mat.ambient,
-            Some(_) => ambient = object.sample_lightmap(position),
+            Some(_) => ambient = object.sample_lightmap(position).element_mul(object_colour),
         }
         //let ambient = object_colour * object_mat.ambient;
 
@@ -210,14 +210,21 @@ impl Engine {
         // map of every sample point's colour
         let mut colour_cloud: Vec<[[Colour; MAP_SIZE]; MAP_SIZE]> = vec![];
         colour_cloud.resize(obj_indexes.len(), [[Colour::default(); MAP_SIZE]; MAP_SIZE]);
+        // map of every sample point's normal
+        let mut normal_cloud: Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]> = vec![];
+        normal_cloud.resize(obj_indexes.len(), [[Vec3::default(); MAP_SIZE]; MAP_SIZE]);
 
         // get point cloud (world pos of all points)
         for (cloud_index, &obj_index) in obj_indexes.iter().enumerate() {
             for x in 0..MAP_SIZE {
                 for y in 0..MAP_SIZE {
                     let sample_pos = self.objects[obj_index].get_sample_pos(x, y);
+                    let colour = self.objects[obj_index].colour(sample_pos);
+                    let normal = self.objects[obj_index].calculate_normal(sample_pos);
+
+                    colour_cloud[cloud_index][x][y] = colour;
+                    normal_cloud[cloud_index][x][y] = normal;
                     point_cloud[cloud_index][x][y] = sample_pos;
-                    colour_cloud[cloud_index][x][y] = self.objects[obj_index].colour(sample_pos);
                 }
             }
         }
@@ -234,15 +241,23 @@ impl Engine {
         new_emissive_maps.reserve(obj_indexes.len());
 
         // light bounces
-        for _ in 0..2 {
+        for _ in 0..4 {
             lightmaps.clear();
             new_emissive_maps.clear();
 
             for (obj_cloud_index, &obj_eng_index) in obj_indexes.iter().enumerate() {
                 let object = &self.objects[obj_eng_index];
 
-                let (lit_lightmap, new_emissive_map) =
-                    compute_object_radiosity(object, obj_cloud_index, &point_cloud, &colour_cloud, &emissive_maps);
+                let (lit_lightmap, new_emissive_map) = compute_object_radiosity(
+                    &self.objects,
+                    object,
+                    obj_cloud_index,
+                    obj_eng_index,
+                    &point_cloud,
+                    &colour_cloud,
+                    &normal_cloud,
+                    &emissive_maps,
+                );
 
                 lightmaps.push(lit_lightmap);
                 new_emissive_maps.push(new_emissive_map);

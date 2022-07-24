@@ -60,10 +60,12 @@ pub fn bilinear_interpolation(x: f32, y: f32, points: &[(f32, f32, Vec3); 4]) ->
     assert_eq!(y1, _y1, "Points do not form a rectangle");
     assert_eq!(y2, _y2, "Points do not form a rectangle");
 
+    /*
     assert!(x1 <= x, "Point not within rectangle");
     assert!(x2 >= x, "Point not within rectangle");
     assert!(y1 <= y, "Point not within rectangle");
     assert!(y2 >= y, "Point not within rectangle");
+    */
 
     (q11 * (x2 - x) * (y2 - y) + q21 * (x - x1) * (y2 - y) + q12 * (x2 - x) * (y - y1) + q22 * (x - x1) * (y - y1))
         / ((x2 - x1) * (y2 - y1))
@@ -78,7 +80,7 @@ pub fn phong_ds(
     let specular: f32;
 
     let light_reflection_vector = vector_to_light.reflect(n);
-    let light_intensity = light_intensity / (distance_to_light + 1.0).powi(2); // k/d^2
+    let light_intensity = light_intensity / (distance_to_light).powi(2); // k/d^2
 
     // Phong shading algorithm
     diffuse = object_mat.diffuse * light_intensity * vector_to_light.dot(n).max(0.0);

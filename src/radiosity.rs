@@ -2,8 +2,9 @@ use std::f32::consts::PI;
 
 use super::vector::Vec3;
 use crate::{
-    engine::ObjectRef,
+    engine::{ObjectRef, SMALL_DISTANCE},
     objects::{EngineLight, PointLight},
+    ray::Ray,
 };
 
 use Vec3 as Colour;
@@ -44,6 +45,7 @@ pub struct Sample {
     pub colour:          Vec3,
     pub normal:          Vec3,
     pub obj_cloud_index: usize,
+    pub obj_eng_index:   usize,
 }
 
 /// Compute the direct lighting on a lightmap
@@ -70,24 +72,19 @@ pub fn compute_direct_lighting(
                 let distance_to_light = vector_to_light.mag();
                 let vector_to_light = vector_to_light / distance_to_light;
 
-                /*
                 let mut shadow_ray = Ray {
                     position:  origin,
                     direction: vector_to_light,
                 };
-                let _ = shadow_ray.march(&self.objects, Some(obj_index));
+                let _ = shadow_ray.march(&objects, Some(obj_index));
 
-                if (shadow_ray.position - origin).mag() >= distance_to_light {
-                    let n = object.calculate_normal(origin);
-                    let diffuse =
-                        n.dot(shadow_ray.direction).max(0.0) * light_intensity / (distance_to_light + 1.0).powi(2);
-
-                    emissive_map.sample_map[x][y] = object.colour(origin) * diffuse;
+                // if we don't make it to the light, something is in the way... so ignore
+                if (shadow_ray.position - origin).mag() < (distance_to_light + 3.0 * SMALL_DISTANCE) {
+                    continue;
                 }
-                */
 
                 let n = object.calculate_normal(origin);
-                let diffuse = n.dot(vector_to_light).max(0.0) * light_intensity / (distance_to_light + 1.0).powi(2);
+                let diffuse = n.dot(vector_to_light).max(0.0) * light_intensity / (distance_to_light).powi(2);
 
                 emissive_map.sample_map[x][y] = colour * diffuse;
             }
@@ -98,7 +95,8 @@ pub fn compute_direct_lighting(
 }
 
 pub fn compute_patch_radiosity(
-    point_cloud: &Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]>, emissive_maps: &Vec<Lightmap>, sample: Sample,
+    objects: &Vec<ObjectRef>, point_cloud: &Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]>,
+    normal_cloud: &Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]>, emissive_maps: &Vec<Lightmap>, sample: Sample,
 ) -> Colour {
     let mut incident: Colour = Colour::new(0.0, 0.0, 0.0);
 
@@ -117,30 +115,33 @@ pub fn compute_patch_radiosity(
                 // get the position and emission of the patch
                 let light_source = point_cloud[lighting_cloud_index][a][b];
                 let light_colour = lighting_lightmap.sample_map[a][b];
+                let light_normal = normal_cloud[lighting_cloud_index][a][b];
 
                 let vector_to_light = light_source - sample.pos;
                 let distance_to_light = vector_to_light.mag();
                 let vector_to_light = vector_to_light / distance_to_light;
 
-                /*
                 let mut shadow_ray = Ray {
-                    position: origin,
-                    direction: vector_to_light,
+                    position:  light_source + (3.0 * SMALL_DISTANCE * -vector_to_light),
+                    direction: -vector_to_light,
                 };
-                let hit = self.march(&mut shadow_ray, Some(lit_obj_index));
-
-
+                let hit = shadow_ray.radiosity_march(objects, None);
                 if hit.is_some() {
-                    if hit.unwrap() == lighting_obj_index {
-                        let diffuse = n_lit.dot(shadow_ray.direction).max(0.0) * 1.0
-                            / (distance_to_light + 1.0).powi(2);
-                        incident += light_colour.element_mul(lit_point_colour) * diffuse;
+                    if hit.unwrap() != sample.obj_eng_index {
+                        continue;
                     }
                 }
+
+                /*  compute lambertian attenuation of light from one patch to another
+                    we calculate the dot product between each plane's normal, and the vector between them.
+                    then we multiply those numbers together
                 */
-                // compute lambertian attenuation of light from one patch to another
-                let diffuse = sample.normal.dot(vector_to_light).max(0.0) * 1.0 / (distance_to_light + 1.0).powi(2);
-                incident += light_colour.element_mul(sample.colour) * diffuse;
+                let attenuation = sample.normal.dot(vector_to_light) * -light_normal.dot(vector_to_light);
+
+                //let attenuation = sample.normal.dot(vector_to_light);
+
+                let diffuse = attenuation.max(0.0) / (distance_to_light).powi(2);
+                incident += light_colour * diffuse;
             }
         }
     }
@@ -148,8 +149,9 @@ pub fn compute_patch_radiosity(
 }
 
 pub fn compute_object_radiosity(
-    object: &ObjectRef, obj_cloud_index: usize, point_cloud: &Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]>,
-    colour_cloud: &Vec<[[Colour; MAP_SIZE]; MAP_SIZE]>, emissive_maps: &Vec<Lightmap>,
+    objects: &Vec<ObjectRef>, object: &ObjectRef, obj_cloud_index: usize, obj_eng_index: usize,
+    point_cloud: &Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]>, colour_cloud: &Vec<[[Colour; MAP_SIZE]; MAP_SIZE]>,
+    normal_cloud: &Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]>, emissive_maps: &Vec<Lightmap>,
 ) -> (Lightmap, Lightmap) {
     let mut obj_lightmap = object.get_lightmap().unwrap().clone();
     let mut new_emissive_map = Lightmap::default();
@@ -160,20 +162,29 @@ pub fn compute_object_radiosity(
             // get the position, colour, normal of the patch
             let patch_pos = point_cloud[obj_cloud_index][x][y];
             let obj_pos_colour = colour_cloud[obj_cloud_index][x][y];
-            let n = object.calculate_normal(patch_pos);
+            let n = normal_cloud[obj_cloud_index][x][y];
 
             let sample = Sample {
                 pos: patch_pos,
                 colour: obj_pos_colour,
                 normal: n,
                 obj_cloud_index,
+                obj_eng_index,
             };
 
             // compute the radiosity of this patch
-            let incident: Colour = compute_patch_radiosity(&point_cloud, &emissive_maps, sample);
-            // "because calculus"
-            obj_lightmap.sample_map[x][y] += incident.element_mul(incident) / PI;
-            new_emissive_map.sample_map[x][y] = incident.element_mul(incident) / PI;
+            let incident: Colour =
+                compute_patch_radiosity(objects, &point_cloud, &normal_cloud, &emissive_maps, sample);
+
+            // a sort of "approximation" to proper incident lighting, where the dot product of both patches is calculated
+            //let incident = incident.element_mul(incident) / (1.5_f32).sqrt();
+
+            // divide by pi "because calculus"
+            let incident = incident / PI;
+
+            obj_lightmap.sample_map[x][y] += incident;
+            // only emit the colour after absorption
+            new_emissive_map.sample_map[x][y] = incident.element_mul(obj_pos_colour);
         }
     }
     (obj_lightmap, new_emissive_map)
