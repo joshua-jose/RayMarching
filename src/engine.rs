@@ -13,7 +13,7 @@ pub const HEIGHT: usize = 700;
 
 pub const MAX_MARCH_DISTANCE: f32 = 50.0;
 pub const SMALL_DISTANCE: f32 = 0.001;
-pub const MAX_SHAD_IT: u32 = 16;
+pub const MAX_SHAD_IT: u32 = 64;
 pub const SKY_COLOUR: Vec3 = rgb![135, 206, 235];
 
 pub type ObjectRef = Box<dyn EngineObject>;

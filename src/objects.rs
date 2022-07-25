@@ -41,65 +41,31 @@ pub trait EngineObject {
     fn sample_lightmap(&self, pos: Vec3) -> Colour {
         let (u, v) = self.sample_uv_from_pos(pos);
 
-        let (mut u0, mut v0) = ((u.floor().max(0.0)) as usize, (v.floor().max(0.0)) as usize);
-        let (mut u1, mut v1) = (u0 + 1, v0 + 1);
+        let (u0, v0) = ((u.floor().max(0.0)) as usize, (v.floor().max(0.0)) as usize);
+        let (u1, v1) = (u0 + 1, v0 + 1);
 
-        u1 = if u1 >= MAP_SIZE { u0 } else { u1 };
-        v1 = if v1 >= MAP_SIZE { v0 } else { v1 };
-
-        // if UV coords exceed lightmap boundaries, extrapolate from previous luxel and current one.
-        /*
-        if u1 >= MAP_SIZE {
-            u0 -= 1;
-            u1 -= 1;
-        }
-        if v1 >= MAP_SIZE {
-            v0 -= 1;
-            v1 -= 1;
-        }
-        */
+        let mut u1 = if u1 >= MAP_SIZE { u0 } else { u1 };
+        let mut v1 = if v1 >= MAP_SIZE { v0 } else { v1 };
 
         let lightmap = self.get_lightmap().unwrap();
 
-        let mut sample00 = lightmap.sample_map[u0][v0];
+        let sample00 = lightmap.sample_map[u0][v0];
         let mut sample01 = lightmap.sample_map[u0][v1];
         let mut sample10 = lightmap.sample_map[u1][v0];
         let mut sample11 = lightmap.sample_map[u1][v1];
 
         let mut resample = false;
 
-        if sample00.mag_sqd() == 0.0 {
+        if sample10.mag_sqd() == 0.0 {
             resample = true;
-            if sample10.mag_sqd() == 0.0 {
-                v0 += 1;
-                v1 += 1;
-            } else if sample11.mag_sqd() == 0.0 {
-                v0 -= 1;
-                v1 -= 1;
-            }
-
-            if sample01.mag_sqd() == 0.0 {
-                u0 += 1;
-                u1 += 1;
-            } else if sample11.mag_sqd() == 0.0 {
-                u0 -= 1;
-                u1 -= 1;
-            }
-        } else {
-            // right side luxel is empty, so it is obstructed
-            if sample10.mag_sqd() == 0.0 {
-                resample = true;
-                u1 -= 1;
-            }
-            // above luxel is empty, so it is obstructed
-            if sample01.mag_sqd() == 0.0 {
-                resample = true;
-                v1 -= 1;
-            }
+            u1 = u0;
+        }
+        if sample01.mag_sqd() == 0.0 {
+            resample = true;
+            v1 = v0;
         }
 
         if resample {
-            sample00 = lightmap.sample_map[u0][v0];
             sample01 = lightmap.sample_map[u0][v1];
             sample10 = lightmap.sample_map[u1][v0];
             sample11 = lightmap.sample_map[u1][v1];
@@ -108,21 +74,16 @@ pub trait EngineObject {
         /* when creating the array of points, always act as if the sample is from the right/up
            even if it wasn't
         */
-        if u0 == u1 {
-            u1 += 1
-        };
-        if v0 == v1 {
-            v1 += 1
-        };
+        let (u1, v1) = (u0 + 1, v0 + 1);
 
-        let points = [
+        let mut points = [
             (u0 as f32, v0 as f32, sample00),
             (u0 as f32, v1 as f32, sample01),
             (u1 as f32, v0 as f32, sample10),
             (u1 as f32, v1 as f32, sample11),
         ];
 
-        bilinear_interpolation(u, v, &points)
+        bilinear_interpolation(u, v, &mut points)
         //sample00
     }
 
@@ -293,10 +254,7 @@ impl EngineObject for YPlane {
         )
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
-        (
-            pos.x() + (MAP_SIZE as f32 / 2.0) - 0.5,
-            pos.z() + (MAP_SIZE as f32 / 2.0) - 0.5,
-        )
+        (pos.x() + (MAP_SIZE as f32 / 2.0), pos.z() + (MAP_SIZE as f32 / 2.0))
     }
 }
 
@@ -313,10 +271,7 @@ impl EngineObject for XPlane {
         )
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
-        (
-            pos.y() + (MAP_SIZE as f32 / 2.0) - 0.5,
-            pos.z() + (MAP_SIZE as f32 / 2.0) - 0.5,
-        )
+        (pos.y() + (MAP_SIZE as f32 / 2.0), pos.z() + (MAP_SIZE as f32 / 2.0))
     }
 }
 
@@ -333,10 +288,7 @@ impl EngineObject for ZPlane {
         )
     }
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
-        (
-            pos.x() + (MAP_SIZE as f32 / 2.0) - 0.5,
-            pos.y() + (MAP_SIZE as f32 / 2.0) - 0.5,
-        )
+        (pos.x() + (MAP_SIZE as f32 / 2.0), pos.y() + (MAP_SIZE as f32 / 2.0))
     }
 }
 

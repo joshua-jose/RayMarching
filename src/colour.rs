@@ -43,12 +43,10 @@ pub fn ACESFilm(mut col: Vec3) -> Vec3 {
 }
 
 // interpolates (x,y) between the 4 points. The 4 points should form a rectangle
-pub fn bilinear_interpolation(x: f32, y: f32, points: &[(f32, f32, Vec3); 4]) -> Vec3 {
-    //let mut sorted_points = points.to_vec();
-
+pub fn bilinear_interpolation(x: f32, y: f32, points: &mut [(f32, f32, Vec3); 4]) -> Vec3 {
     /*sort by y values, then x, to get 00,01,10,11 order */
-    //sorted_points.sort_by(|a, b| (&a.1).partial_cmp(&b.1).unwrap());
-    //sorted_points.sort_by(|a, b| (&a.0).partial_cmp(&b.0).unwrap());
+    points.sort_by(|a, b| (&a.1).partial_cmp(&b.1).unwrap());
+    points.sort_by(|a, b| (&a.0).partial_cmp(&b.0).unwrap());
 
     let (x1, y1, q11) = points[0];
     let (_x1, y2, q12) = points[1];

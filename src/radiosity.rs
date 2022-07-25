@@ -176,9 +176,6 @@ pub fn compute_object_radiosity(
             let incident: Colour =
                 compute_patch_radiosity(objects, &point_cloud, &normal_cloud, &emissive_maps, sample);
 
-            // a sort of "approximation" to proper incident lighting, where the dot product of both patches is calculated
-            //let incident = incident.element_mul(incident) / (1.5_f32).sqrt();
-
             // divide by pi "because calculus"
             let incident = incident / PI;
 

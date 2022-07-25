@@ -59,7 +59,7 @@ fn main() {
         camera_position: Vec3::new(0.0, 0.5, -3.5),
         light:           PointLight {
             position:  Vec3::new(0.0, 3.0, -2.5),
-            intensity: 4.5,
+            intensity: 3.5,
         },
     };
 
