@@ -10,7 +10,7 @@ pub struct Material {
 impl Material {
     pub const fn basic() -> Self {
         Self {
-            ambient:      0.1,
+            ambient:      0.25,
             diffuse:      1.0,
             specular:     0.0,
             shininess:    4.0,

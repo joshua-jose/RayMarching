@@ -58,7 +58,7 @@ fn main() {
         objects:         objs,
         camera_position: Vec3::new(0.0, 0.5, -3.5),
         light:           PointLight {
-            position:  Vec3::new(0.0, 3.0, -2.5),
+            position:  Vec3::new(0.0, 3.0, 0.0),
             intensity: 3.5,
         },
     };
@@ -96,7 +96,7 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
 
     vec![
         Box::new(Sphere {
-            position: Vec3::new(-1.0, -1.0, 0.3),
+            position: Vec3::new(-1.2, -1.0, 0.1),
             radius:   1.0,
             material: Material {
                 ambient:      0.05,
@@ -106,18 +106,20 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
                 reflectivity: 1.0,
             },
             colour:   WHITE,
+            lightmap: Default::default(),
         }),
         Box::new(Sphere {
-            position: Vec3::new(1.0, -1.0, -0.5),
+            position: Vec3::new(1.0, -1.0, -0.7),
             radius:   1.0,
             material: Material {
                 ambient:      0.1,
                 diffuse:      1.0,
                 specular:     0.9,
                 shininess:    32.0,
-                reflectivity: 0.3,
+                reflectivity: 0.25,
             },
             colour:   SOFT_YELLOW,
+            lightmap: Default::default(),
         }),
         Box::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY)),
         Box::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY)),

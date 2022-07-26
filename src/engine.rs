@@ -89,13 +89,14 @@ impl Engine {
             }
         }
 
-        // perform sRGB colour corrections and tone mapping
+        // performs tone mapping
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
                 colours[y_inv][x] = ACESFilm(colours[y_inv][x]);
             }
         }
 
+        // perform sRGB colour corrections
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
                 colours[y_inv][x] = colours[y_inv][x].sqrt();
@@ -144,11 +145,17 @@ impl Engine {
         let object_colour = object.colour(position);
         let object_mat = object.material();
 
-        let ambient: Colour;
+        let mut ambient: Colour;
         match object.get_lightmap() {
             None => ambient = object_colour * object_mat.ambient,
             Some(_) => ambient = object.sample_lightmap(position).element_mul(object_colour),
         }
+
+        // set a minimum intensity
+        if ambient.mag_sqd() < object_mat.ambient.powi(2) {
+            ambient = ambient.normalized() * object_mat.ambient;
+        }
+
         //let ambient = object_colour * object_mat.ambient;
 
         let n = object.calculate_normal(position); // normal vector
@@ -190,6 +197,7 @@ impl Engine {
                 (fresnel + object_mat.reflectivity).clamp(0.0, 1.0) * reflection_colour.element_mul(object_colour);
         }
         final_colour
+        //ambient
     }
 
     pub fn compute_lightmaps(&mut self) {
