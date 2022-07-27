@@ -127,8 +127,11 @@ pub fn compute_patch_radiosity(
                 };
                 let hit = shadow_ray.radiosity_march(objects, None);
                 if hit.is_some() {
+                    // if the collision was super close, ignore it. it's probably an unlucky sample position
                     if hit.unwrap() != sample.obj_eng_index {
-                        continue;
+                        if (shadow_ray.position - sample.pos).mag_sqd() > 0.1_f32.powi(2) {
+                            continue;
+                        }
                     }
                 }
 
@@ -138,10 +141,9 @@ pub fn compute_patch_radiosity(
                 */
                 let attenuation = sample.normal.dot(vector_to_light) * -light_normal.dot(vector_to_light);
 
-                //let attenuation = sample.normal.dot(vector_to_light);
-
+                // diffuse is set with a max value of 2.0, bright lighting is ok but it shouldn't have a crazy intensity.
                 let diffuse = attenuation.max(0.0) / (distance_to_light).powi(2);
-                incident += light_colour * diffuse;
+                incident += light_colour * diffuse.min(2.0);
             }
         }
     }

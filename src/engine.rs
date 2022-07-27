@@ -1,12 +1,8 @@
-use crate::colour::phong_ds;
-use crate::radiosity::{compute_direct_lighting, compute_object_radiosity};
-
-use super::colour::{ACESFilm, Pixel};
+use super::colour::{phong_ds, ACESFilm, Colour, Pixel};
 use super::objects::{EngineLight, EngineObject, PointLight};
-use super::radiosity::{Lightmap, MAP_SIZE};
+use super::radiosity::{compute_direct_lighting, compute_object_radiosity, Lightmap, MAP_SIZE};
 use super::ray::Ray;
 use super::vector::Vec3;
-use Vec3 as Colour;
 
 pub const WIDTH: usize = 700;
 pub const HEIGHT: usize = 700;
@@ -148,13 +144,16 @@ impl Engine {
         let mut ambient: Colour;
         match object.get_lightmap() {
             None => ambient = object_colour * object_mat.ambient,
-            Some(_) => ambient = object.sample_lightmap(position).element_mul(object_colour),
+            Some(_) => ambient = object.sample_lightmap(position),
         }
 
         // set a minimum intensity
         if ambient.mag_sqd() < object_mat.ambient.powi(2) {
             ambient = ambient.normalized() * object_mat.ambient;
         }
+
+        // colour the pixel correctly
+        ambient = ambient.element_mul(object_colour);
 
         //let ambient = object_colour * object_mat.ambient;
 

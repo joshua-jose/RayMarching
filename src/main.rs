@@ -8,6 +8,7 @@ mod material;
 mod objects;
 mod radiosity;
 mod ray;
+mod texture;
 mod vector;
 
 extern crate sdl2;
@@ -22,6 +23,7 @@ use std::time::Instant;
 use vector::Vec3;
 
 use crate::engine::Aligned;
+use crate::texture::Texture;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -92,6 +94,7 @@ fn main() {
 }
 
 fn construct_objects() -> Vec<Box<dyn EngineObject>> {
+    let wood_tex = Texture::new("assets/textures/Floor128.bmp", 32.0, 32.0);
     const BASIC_MAT: Material = Material::basic();
 
     vec![
@@ -121,8 +124,8 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
             colour:   SOFT_YELLOW,
             lightmap: Default::default(),
         }),
-        Box::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY)),
-        Box::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY)),
+        Box::new(YPlane::new(-2.0, 1.0, BASIC_MAT, SOFT_GRAY, &wood_tex)),
+        Box::new(YPlane::new(4.0, -1.0, BASIC_MAT, SOFT_GRAY, &wood_tex)),
         Box::new(XPlane::new(-3.0, 1.0, BASIC_MAT, SOFT_RED)),
         Box::new(XPlane::new(3.0, -1.0, BASIC_MAT, SOFT_GREEN)),
         Box::new(ZPlane::new(2.0, -1.0, BASIC_MAT, SOFT_GRAY)),

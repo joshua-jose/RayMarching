@@ -1,5 +1,7 @@
 use std::f32::consts::{PI, TAU};
 
+use crate::texture::Texture;
+
 use super::radiosity::MAP_SIZE;
 
 use super::colour::bilinear_interpolation;
@@ -179,13 +181,14 @@ pub struct XPlane {
     pub lightmap: Lightmap,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone)]
 pub struct YPlane {
     pub y:        f32,
     pub dir:      f32,
     pub material: Material,
     pub colour:   Colour,
     pub lightmap: Lightmap,
+    pub texture:  Texture,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -228,13 +231,14 @@ impl XPlane {
     }
 }
 impl YPlane {
-    pub fn new(y: f32, dir: f32, material: Material, colour: Colour) -> Self {
+    pub fn new(y: f32, dir: f32, material: Material, colour: Colour, texture: &Texture) -> Self {
         Self {
             y,
             dir,
             material,
             colour,
             lightmap: Lightmap::default(),
+            texture: texture.clone(),
         }
     }
 }
@@ -259,31 +263,12 @@ impl EngineObject for Plane {
 
 impl EngineObject for YPlane {
     fn colour(&self, _position: Vec3) -> Colour {
-        /*
         if self.y > 0.0 {
             self.colour
         } else {
             let (u, v) = self.sample_uv_from_pos(_position);
-            // texture is 128x128, and we want 16 pixels per world unit
-            let (u, v) = (
-                ((u * 32.0).floor() % 128.0) as usize,
-                ((v * 32.0).floor() % 128.0) as usize,
-            );
-
-            // 5 bit texture
-            let col: u16 = WOOD_TEX[v][u];
-            let (r, g, b) = (col >> 11 & 0x1F, col >> 6 & 0x1F, col & 0x1F);
-            //let (r, g, b) = (r as f32 / 31.0, g as f32 / 31.0, b as f32 / 31.0);
-            let (r, g, b) = (
-                255.0 * r as f32 / 31.0,
-                255.0 * g as f32 / 31.0,
-                255.0 * b as f32 / 31.0,
-            );
-
-            rgb!(r, g, b)
+            self.texture.sample(u, v)
         }
-        */
-        self.colour
     }
     fn sdf(&self, position: Vec3) -> f32 { self.dir * (position.y() - self.y) }
 
@@ -366,7 +351,7 @@ impl EngineObject for Sphere {
     fn sample_uv_from_pos(&self, pos: Vec3) -> (f32, f32) {
         let n = (pos - self.position).normalized();
         let u = 0.5 + f32::atan2(n.x(), -n.z()) / TAU;
-        let v = 0.5 + n.y().asin() / PI;
+        let v = 0.5 + (n.y() / 2.0);
         (u * MAP_SIZE as f32, v * MAP_SIZE as f32)
     }
 }

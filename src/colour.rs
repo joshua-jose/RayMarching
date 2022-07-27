@@ -1,11 +1,12 @@
-use crate::material::Material;
+use super::material::Material;
+use super::vector::Vec3;
 
-use super::Vec3;
+pub type Colour = Vec3;
 
 #[macro_export]
 macro_rules! rgb {
     [$r:expr, $g:expr, $b:expr] => {
-        Vec3::new(
+        Colour::new(
              ($r as f32 / 255.0) * ($r as f32 / 255.0),
              ($g as f32 / 255.0) * ($g as f32 / 255.0),
              ($b as f32 / 255.0) * ($b as f32 / 255.0),
@@ -13,12 +14,12 @@ macro_rules! rgb {
     };
 }
 
-pub const WHITE: Vec3 = rgb![255, 255, 255];
-pub const SOFT_RED: Vec3 = rgb![214, 81, 81];
-pub const SOFT_GREEN: Vec3 = rgb![81, 214, 81];
-//pub const SOFT_BLUE: Vec3 = rgb![81, 81, 214];
-pub const SOFT_GRAY: Vec3 = rgb![214, 214, 214];
-pub const SOFT_YELLOW: Vec3 = rgb![230, 230, 127];
+pub const WHITE: Colour = rgb![255, 255, 255];
+pub const SOFT_RED: Colour = rgb![214, 81, 81];
+pub const SOFT_GREEN: Colour = rgb![81, 214, 81];
+//pub const SOFT_BLUE: Colour = rgb![81, 81, 214];
+pub const SOFT_GRAY: Colour = rgb![214, 214, 214];
+pub const SOFT_YELLOW: Colour = rgb![230, 230, 127];
 
 #[repr(C)]
 pub struct Pixel {
@@ -29,7 +30,7 @@ pub struct Pixel {
 }
 
 #[allow(non_snake_case)]
-pub fn ACESFilm(mut col: Vec3) -> Vec3 {
+pub fn ACESFilm(mut col: Colour) -> Colour {
     let a: f32 = 2.51;
     let b: f32 = 0.03;
     let c: f32 = 2.43;
@@ -43,7 +44,7 @@ pub fn ACESFilm(mut col: Vec3) -> Vec3 {
 }
 
 // interpolates (x,y) between the 4 points. The 4 points should form a rectangle
-pub fn bilinear_interpolation(x: f32, y: f32, points: &mut [(f32, f32, Vec3); 4]) -> Vec3 {
+pub fn bilinear_interpolation(x: f32, y: f32, points: &mut [(f32, f32, Colour); 4]) -> Colour {
     /*sort by y values, then x, to get 00,01,10,11 order */
     points.sort_by(|a, b| (&a.1).partial_cmp(&b.1).unwrap());
     points.sort_by(|a, b| (&a.0).partial_cmp(&b.0).unwrap());
@@ -71,8 +72,8 @@ pub fn bilinear_interpolation(x: f32, y: f32, points: &mut [(f32, f32, Vec3); 4]
 
 // Phong diffuse and specular shading
 pub fn phong_ds(
-    n: Vec3, vector_to_light: Vec3, distance_to_light: f32, light_intensity: f32, object_mat: &Material,
-    view_direction: Vec3,
+    n: Colour, vector_to_light: Colour, distance_to_light: f32, light_intensity: f32, object_mat: &Material,
+    view_direction: Colour,
 ) -> (f32, f32) {
     let diffuse: f32;
     let specular: f32;
