@@ -4,8 +4,8 @@ use super::radiosity::{compute_direct_lighting, compute_object_radiosity, Lightm
 use super::ray::Ray;
 use super::vector::Vec3;
 
-pub const WIDTH: usize = 700;
-pub const HEIGHT: usize = 700;
+pub const WIDTH: usize = 800;
+pub const HEIGHT: usize = 600;
 
 pub const MAX_MARCH_DISTANCE: f32 = 50.0;
 pub const SMALL_DISTANCE: f32 = 0.001;
@@ -23,11 +23,11 @@ fn to_pixel_range(i: f32) -> u8 { (255.0 * i).round().clamp(0.0, 255.0) as u8 }
 pub struct Aligned<T: ?Sized>(pub T);
 
 impl Engine {
-    pub fn render(&self, buffer: &mut [u8], directions: &mut Aligned<Vec<Vec<Vec3>>>) {
+    pub fn render(&mut self, buffer: &mut [u8], directions: &mut Aligned<Vec<Vec<Vec3>>>) {
         unsafe {
             N += 1;
-            //self.camera_position.y = 2.0 + 3.0 * (0.01 * N as f32).sin();
-            //self.camera_position.x = 2.0 * (0.01 * N as f32).cos();
+            //self.camera_position.0[1] = 2.0 + 3.0 * (0.01 * N as f32).sin();
+            self.camera_position.0[0] = 2.0 * (0.1 * N as f32).cos();
 
             //zoffset = 3.0 + 6.0 * (0.1 * N as f32).sin();
             //xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
@@ -49,8 +49,8 @@ impl Engine {
             for x in 0..WIDTH {
                 // calculate proper y value and pixel uvs
                 let y = HEIGHT - y_inv;
-                let u = ((2 * x) as f32 / WIDTH as f32) - 1.0;
-                let v = ((2 * y) as f32 / HEIGHT as f32) - 1.0;
+                let u = 2.0 * (x as f32 - (0.5 * (WIDTH as f32))) / HEIGHT as f32; // divide u by height to account for aspect ratio
+                let v = 2.0 * (y as f32 - (0.5 * (HEIGHT as f32))) / HEIGHT as f32;
 
                 // array of vectors out of each pixel
                 let direction_vector = Vec3::new(u, v, 1.0).normalized();
@@ -85,10 +85,12 @@ impl Engine {
             }
         }
 
+        let exposure: f32 = 1.0;
+
         // performs tone mapping
         for y_inv in 0..HEIGHT {
             for x in 0..WIDTH {
-                colours[y_inv][x] = ACESFilm(colours[y_inv][x]);
+                colours[y_inv][x] = ACESFilm(colours[y_inv][x] * exposure);
             }
         }
 
@@ -140,8 +142,10 @@ impl Engine {
 
         let object_colour = object.colour(position);
         let object_mat = object.material();
+        let n = object.calculate_normal(position); // normal vector
 
         let mut ambient: Colour;
+
         match object.get_lightmap() {
             None => ambient = object_colour * object_mat.ambient,
             Some(_) => ambient = object.sample_lightmap(position),
@@ -156,8 +160,6 @@ impl Engine {
         ambient = ambient.element_mul(object_colour);
 
         //let ambient = object_colour * object_mat.ambient;
-
-        let n = object.calculate_normal(position); // normal vector
 
         // get normalised vector to light, and distance
         let vector_to_light = self.light.get_position() - position;
@@ -183,6 +185,40 @@ impl Engine {
 
         final_colour = ambient + object_colour * (shade * (diffuse + specular));
 
+        // if object_mat.refract
+        /*
+        if object_mat.reflectivity > 1e-3 {
+            let ior = 2.5;
+            let refraction_vector = direction.refract(n, 1.0 / ior);
+            let mut enter_ray = Ray {
+                position:  position + refraction_vector * (3.0 * SMALL_DISTANCE),
+                direction: refraction_vector,
+            };
+
+            enter_ray.internal_march(object);
+
+            let exit_n = object.calculate_normal(enter_ray.position);
+            let mut exit_direction = refraction_vector.refract(-exit_n, ior);
+            let exit_pos = enter_ray.position;
+
+            // TIR
+            if exit_direction.mag_sqd() == 0.0 {
+                exit_direction = refraction_vector.reflect(-exit_n);
+            }
+
+            let mut exit_ray = Ray {
+                position:  exit_pos,
+                direction: exit_direction,
+            };
+
+            let refr_hit = exit_ray.march(&self.objects, Some(obj_index));
+
+            if refr_hit.is_some() {
+                final_colour += self.shade_object(refr_hit.unwrap(), exit_ray.position, exit_ray.direction);
+            }
+        }
+        */
+
         // if the object is reflective, cast a reflection ray
         if object_mat.reflectivity > 1e-3 {
             // very cheap fresnel effect
@@ -195,8 +231,8 @@ impl Engine {
             final_colour +=
                 (fresnel + object_mat.reflectivity).clamp(0.0, 1.0) * reflection_colour.element_mul(object_colour);
         }
+
         final_colour
-        //ambient
     }
 
     pub fn compute_lightmaps(&mut self) {
@@ -236,8 +272,12 @@ impl Engine {
             }
         }
 
-        let mut emissive_maps =
+        let (mut emissive_maps, new_lightmaps) =
             compute_direct_lighting(&self.light, &obj_indexes, &self.objects, &point_cloud, &colour_cloud);
+
+        for (cloud_index, &obj_index) in obj_indexes.iter().enumerate() {
+            self.objects[obj_index].set_lightmap(new_lightmaps[cloud_index]);
+        }
 
         // TODO: generate occlusion matrix from point cloud
 

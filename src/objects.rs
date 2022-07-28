@@ -127,7 +127,6 @@ pub trait EngineObject {
         ];
 
         bilinear_interpolation(u, v, &mut points)
-        //sample00
     }
 
     fn calculate_normal(&self, position: Vec3) -> Vec3 {
@@ -364,6 +363,17 @@ let p = Vec3 {
     z: position.z.abs(),
 };
 p.x.max(p.y.max(p.z)) - 1.0 + p.dot(p) * 0.2
+*/
+/*
+let p = position - self.position;
+
+let abs_p = Vec3::new(p.x().abs(), p.y().abs(), p.z().abs());
+let s = Vec3::new(1.0, 1.0, 1.0) * 0.7;
+let q = abs_p - s;
+
+let r = Vec3::new(q.x().max(0.0), q.y().max(0.0), q.z().max(0.0));
+
+r.mag() + (q.x().max(q.y().max(q.z()))).min(0.0)
 */
 
 impl EngineLight for PointLight {

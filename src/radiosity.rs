@@ -52,16 +52,20 @@ pub struct Sample {
 pub fn compute_direct_lighting(
     light: &PointLight, obj_indexes: &Vec<usize>, objects: &Vec<ObjectRef>,
     point_cloud: &Vec<[[Vec3; MAP_SIZE]; MAP_SIZE]>, colour_cloud: &Vec<[[Colour; MAP_SIZE]; MAP_SIZE]>,
-) -> Vec<Lightmap> {
+) -> (Vec<Lightmap>, Vec<Lightmap>) {
     let light_pos = light.get_position();
     let light_intensity = light.get_intensity();
 
     let mut emissive_maps: Vec<Lightmap> = Vec::new();
     emissive_maps.reserve(obj_indexes.len());
+    let mut new_lightmaps: Vec<Lightmap> = Vec::new();
+    new_lightmaps.reserve(obj_indexes.len());
 
     for (cloud_index, &obj_index) in obj_indexes.iter().enumerate() {
         let object = &objects[obj_index];
+        let mut obj_lightmap = Lightmap::default();
         let mut emissive_map = Lightmap::default();
+        let emissivity = object.material().emissive;
 
         for x in 0..MAP_SIZE {
             for y in 0..MAP_SIZE {
@@ -86,12 +90,14 @@ pub fn compute_direct_lighting(
                 let n = object.calculate_normal(origin);
                 let diffuse = n.dot(vector_to_light).max(0.0) * light_intensity / (distance_to_light).powi(2);
 
-                emissive_map.sample_map[x][y] = colour * diffuse;
+                emissive_map.sample_map[x][y] = colour * (diffuse + emissivity);
+                obj_lightmap.sample_map[x][y] = colour * emissivity; // an emissive object is directly lit by it
             }
         }
         emissive_maps.push(emissive_map);
+        new_lightmaps.push(obj_lightmap);
     }
-    emissive_maps
+    (emissive_maps, new_lightmaps)
 }
 
 pub fn compute_patch_radiosity(

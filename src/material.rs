@@ -5,6 +5,7 @@ pub struct Material {
     pub specular:     f32,
     pub shininess:    f32, // aka gloss
     pub reflectivity: f32,
+    pub emissive:     f32,
 }
 
 impl Material {
@@ -15,6 +16,7 @@ impl Material {
             specular:     0.0,
             shininess:    4.0,
             reflectivity: 0.0,
+            emissive:     0.0,
         }
     }
 }

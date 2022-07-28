@@ -60,7 +60,7 @@ fn main() {
         objects:         objs,
         camera_position: Vec3::new(0.0, 0.5, -3.5),
         light:           PointLight {
-            position:  Vec3::new(0.0, 3.0, 0.0),
+            position:  Vec3::new(2.0, -1.0, 1.5),
             intensity: 3.5,
         },
     };
@@ -96,7 +96,6 @@ fn main() {
 fn construct_objects() -> Vec<Box<dyn EngineObject>> {
     let wood_tex = Texture::new("assets/textures/Floor128.bmp", 32.0, 32.0);
     const BASIC_MAT: Material = Material::basic();
-
     vec![
         Box::new(Sphere {
             position: Vec3::new(-1.2, -1.0, 0.1),
@@ -107,6 +106,7 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
                 specular:     0.2,
                 shininess:    16.0,
                 reflectivity: 1.0,
+                emissive:     0.0,
             },
             colour:   WHITE,
             lightmap: Default::default(),
@@ -120,6 +120,7 @@ fn construct_objects() -> Vec<Box<dyn EngineObject>> {
                 specular:     0.9,
                 shininess:    32.0,
                 reflectivity: 0.25,
+                emissive:     0.0,
             },
             colour:   SOFT_YELLOW,
             lightmap: Default::default(),

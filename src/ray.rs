@@ -41,6 +41,20 @@ impl Ray {
         return None;
     }
 
+    pub fn _internal_march(&mut self, object: &ObjectRef) {
+        let mut iterations: u16 = 0;
+        while iterations < 20 {
+            let distance = object.sdf(self.position);
+
+            // looking to exit the shape, so exit if we are outside
+            if distance > SMALL_DISTANCE {
+                break;
+            }
+            self.position += self.direction * distance.abs();
+            iterations += 1;
+        }
+    }
+
     pub fn radiosity_march(&mut self, objects: &Vec<ObjectRef>, ignore_object: Option<usize>) -> Option<usize> {
         let mut distance_travelled = 0.0;
         let ignore_index = ignore_object.unwrap_or(usize::MAX);

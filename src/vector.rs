@@ -36,6 +36,16 @@ impl Vec3 {
     pub fn element_mul(&self, other: Vec3) -> Vec3 { Vec3(self.0 * other.0) }
 
     pub fn reflect(&self, normal: Vec3) -> Vec3 { *self - normal * (2.0 * normal.dot(*self)) }
+
+    pub fn refract(&self, normal: Vec3, ior: f32) -> Vec3 {
+        //! ior is actually the ratio of index of refractions of the two materials
+        let k = 1.0 - ior.powi(2) * (1.0 - self.dot(normal).powi(2));
+        if k < 0.0 {
+            Vec3::new(0.0, 0.0, 0.0)
+        } else {
+            ior * (*self) - (ior * self.dot(normal) + k.sqrt()) * normal
+        }
+    }
 }
 
 impl fmt::Display for Vec3 {
