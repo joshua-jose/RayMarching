@@ -4,6 +4,8 @@ use super::radiosity::{compute_direct_lighting, compute_object_radiosity, Lightm
 use super::ray::Ray;
 use super::vector::Vec3;
 
+use rayon::prelude::*;
+
 pub const WIDTH: usize = 800;
 pub const HEIGHT: usize = 600;
 
@@ -45,26 +47,25 @@ impl Engine {
         };
         */
 
-        for y_inv in 0..HEIGHT {
+        let exposure: f32 = 1.0;
+
+        directions.0.par_iter_mut().enumerate().for_each(|(y_inv, rows)| {
             for x in 0..WIDTH {
-                // calculate proper y value and pixel uvs
                 let y = HEIGHT - y_inv;
                 let u = 2.0 * (x as f32 - (0.5 * (WIDTH as f32))) / HEIGHT as f32; // divide u by height to account for aspect ratio
                 let v = 2.0 * (y as f32 - (0.5 * (HEIGHT as f32))) / HEIGHT as f32;
 
                 // array of vectors out of each pixel
-                let direction_vector = Vec3::new(u, v, 1.0).normalized();
-                directions.0[y_inv][x] = direction_vector;
+                rows[x] = Vec3::new(u, v, 1.0).normalized();
             }
-        }
+        });
 
         let buffer_pixels =
-            unsafe { std::slice::from_raw_parts_mut(buffer.as_mut_ptr() as *mut Pixel, WIDTH * HEIGHT * 4) };
+            unsafe { std::slice::from_raw_parts_mut(buffer.as_mut_ptr() as *mut Pixel, WIDTH * HEIGHT) };
 
         let mut colours = vec![Vec::with_capacity(WIDTH); HEIGHT];
 
-        // calculate the linear colour of each pixel
-        for y_inv in 0..HEIGHT {
+        colours.par_iter_mut().enumerate().for_each(|(y_inv, rows)| {
             for x in 0..WIDTH {
                 /*
                 let mut ssaa_colours: [Vec3; 4] = [Default::default(); 4];
@@ -81,41 +82,23 @@ impl Engine {
                 let colour_linear = (ssaa_colours[0] + ssaa_colours[1] + ssaa_colours[2] + ssaa_colours[3]) / 4.0;
                 */
                 let colour_linear: Colour = self.cast_sight_ray(self.camera_position, directions.0[y_inv][x]);
-                colours[y_inv].push(colour_linear);
+                let colour_srgb = ACESFilm(colour_linear * exposure).sqrt();
+
+                rows.push(colour_srgb);
             }
-        }
+        });
 
-        let exposure: f32 = 1.0;
-
-        // performs tone mapping
-        for y_inv in 0..HEIGHT {
-            for x in 0..WIDTH {
-                colours[y_inv][x] = ACESFilm(colours[y_inv][x] * exposure);
-            }
-        }
-
-        // perform sRGB colour corrections
-        for y_inv in 0..HEIGHT {
-            for x in 0..WIDTH {
-                colours[y_inv][x] = colours[y_inv][x].sqrt();
-            }
-        }
-
-        // write the colour to the frame buffer
-        for y_inv in 0..HEIGHT {
-            for x in 0..WIDTH {
-                let i = y_inv * WIDTH + x;
-                let colour_tonemapped = colours[y_inv][x];
-
-                // transform 0..1 to 0..255
-                buffer_pixels[i] = Pixel {
-                    r: to_pixel_range(colour_tonemapped.z()),
-                    g: to_pixel_range(colour_tonemapped.y()),
-                    b: to_pixel_range(colour_tonemapped.x()),
-                    a: 0,
-                };
-            }
-        }
+        buffer_pixels.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+            let x = i % WIDTH;
+            let y_inv = i / WIDTH;
+            let colour_srgb = colours[y_inv][x];
+            *pixel = Pixel {
+                r: to_pixel_range(colour_srgb.z()),
+                g: to_pixel_range(colour_srgb.y()),
+                b: to_pixel_range(colour_srgb.x()),
+                a: 0,
+            };
+        });
     }
 
     fn cast_sight_ray(&self, position: Vec3, direction: Vec3) -> Colour {
@@ -323,3 +306,6 @@ pub struct Engine {
     pub camera_position: Vec3,
     pub light:           PointLight,
 }
+
+unsafe impl Sync for Engine {}
+unsafe impl Send for Engine {}

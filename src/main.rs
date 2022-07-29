@@ -68,6 +68,8 @@ fn main() {
     engine.compute_lightmaps();
     let mut directions = Aligned(vec![vec![Vec3::default(); WIDTH]; HEIGHT]);
 
+    rayon::ThreadPoolBuilder::new().num_threads(10).build_global().unwrap();
+
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
