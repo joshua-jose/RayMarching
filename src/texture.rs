@@ -29,8 +29,8 @@ impl Texture {
     }
 
     pub fn sample(&self, u: f32, v: f32) -> Colour {
-        let x = (u * self.uscale).floor() as u32 % self.width;
-        let y = (v * self.vscale).floor() as u32 % self.height;
+        let x = ((u * self.uscale).abs().floor() % self.width as f32) as u32;
+        let y = ((v * self.vscale).abs().floor() % self.height as f32) as u32;
         let i = x + (y * self.width);
 
         self.image[i as usize]

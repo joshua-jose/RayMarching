@@ -18,7 +18,8 @@ use engine::{Engine, HEIGHT, WIDTH};
 use material::Material;
 use objects::{EngineObject, PointLight, Sphere, XPlane, YPlane, ZPlane};
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Scancode};
+use sdl2::mouse::MouseButton;
 use std::time::Instant;
 use vector::Vec3;
 
@@ -43,6 +44,10 @@ fn main() {
 
     let mut event_pump = sdl_context.event_pump().unwrap(); // lets us handle events
     let mut canvas = window.into_canvas().build().unwrap(); // proxy for drawing
+
+    sdl_context.mouse().capture(true);
+    sdl_context.mouse().set_relative_mouse_mode(true);
+    sdl_context.mouse().show_cursor(false);
 
     // create a texture to plot pixels to
     let texture_creator = canvas.texture_creator();
@@ -70,21 +75,72 @@ fn main() {
 
     rayon::ThreadPoolBuilder::new().num_threads(10).build_global().unwrap();
 
+    let mut mouse_x: i32 = 0;
+    let mut mouse_y: i32 = 0;
+    let mut scroll: i32 = 0;
+
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
+                Event::Quit { .. } => break 'running,
+
+                Event::KeyDown {
                     keycode: Some(Keycode::Escape),
                     ..
-                } => break 'running,
+                } => {
+                    sdl_context.mouse().capture(false);
+                    sdl_context.mouse().set_relative_mouse_mode(false);
+                    sdl_context.mouse().show_cursor(true);
+                }
+
+                Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Left,
+                    ..
+                } => {
+                    sdl_context.mouse().capture(true);
+                    sdl_context.mouse().set_relative_mouse_mode(true);
+                    sdl_context.mouse().show_cursor(false);
+                }
+
+                Event::MouseMotion { xrel, yrel, .. } => {
+                    //if relative mouse mode true, mouse is captured
+                    if sdl_context.mouse().relative_mouse_mode() {
+                        mouse_x += xrel;
+                        mouse_y += yrel;
+                    }
+                }
+                Event::MouseWheel { y, .. } => {
+                    if sdl_context.mouse().relative_mouse_mode() {
+                        scroll += y;
+                    }
+                }
+
                 _ => {}
             }
         }
+
+        let mut rel_move = Vec3::default();
+        let speed;
+        if event_pump.keyboard_state().is_scancode_pressed(Scancode::LShift) {
+            speed = 0.15;
+        } else {
+            speed = 0.05;
+        }
+
+        for pressed_key in event_pump.keyboard_state().pressed_scancodes() {
+            match pressed_key {
+                Scancode::W => rel_move.0[2] += speed,
+                Scancode::S => rel_move.0[2] -= speed,
+                Scancode::A => rel_move.0[0] -= speed,
+                Scancode::D => rel_move.0[0] += speed,
+                _ => {}
+            }
+        }
+
         let now = Instant::now();
         texture
             .with_lock(None, |buffer, _width| {
-                engine.render(buffer, &mut directions);
+                engine.render(buffer, &mut directions, mouse_x, mouse_y, rel_move, scroll);
             })
             .unwrap(); // update texture
 

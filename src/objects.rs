@@ -48,6 +48,9 @@ pub trait EngineObject {
         let (mut u0, mut v0) = ((u.floor().max(0.0)) as usize, (v.floor().max(0.0)) as usize);
         let (mut u1, mut v1) = (u0 + 1, v0 + 1);
 
+        u0 = if u0 >= MAP_SIZE { u0 - 1 } else { u0 };
+        v0 = if v0 >= MAP_SIZE { v0 - 1 } else { v0 };
+
         u1 = if u1 >= MAP_SIZE { u0 } else { u1 };
         v1 = if v1 >= MAP_SIZE { v0 } else { v1 };
 

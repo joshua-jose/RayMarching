@@ -21,15 +21,28 @@ static mut N: i32 = 0;
 #[inline]
 fn to_pixel_range(i: f32) -> u8 { (255.0 * i).round().clamp(0.0, 255.0) as u8 }
 
+fn rot(vector: Vec3, sx: f32, cx: f32, sy: f32, cy: f32) -> Vec3 {
+    let mut x = vector.x();
+    let mut y = vector.y();
+    let mut z = vector.z();
+
+    (y, z) = (y * cy - z * sy, y * sy + z * cy);
+    (x, z) = (x * cx - z * sx, x * sx + z * cx);
+    Vec3::new(x, y, z)
+}
+
 #[repr(align(128))]
 pub struct Aligned<T: ?Sized>(pub T);
 
 impl Engine {
-    pub fn render(&mut self, buffer: &mut [u8], directions: &mut Aligned<Vec<Vec<Vec3>>>) {
+    pub fn render(
+        &mut self, buffer: &mut [u8], directions: &mut Aligned<Vec<Vec<Vec3>>>, mouse_x: i32, mouse_y: i32,
+        rel_move: Vec3, scroll: i32,
+    ) {
         unsafe {
             N += 1;
             //self.camera_position.0[1] = 2.0 + 3.0 * (0.01 * N as f32).sin();
-            self.camera_position.0[0] = 2.0 * (0.1 * N as f32).cos();
+            //self.camera_position.0[0] = 2.0 * (0.1 * N as f32).cos();
 
             //zoffset = 3.0 + 6.0 * (0.1 * N as f32).sin();
             //xoffset = 3.0 + 6.0 * (0.1 * N as f32).cos();
@@ -49,6 +62,16 @@ impl Engine {
 
         let exposure: f32 = 1.0;
 
+        let theta_x = -mouse_x as f32 / 600.0;
+        let theta_y = mouse_y as f32 / 600.0;
+
+        let (sx, cx) = theta_x.sin_cos();
+        let (sy, cy) = theta_y.sin_cos();
+
+        // move camera in direction we are facing
+        self.camera_position += rot(rel_move, sx, cx, sy, cy);
+        let zdepth = 1.0 + (scroll as f32 / 10.0);
+
         directions.0.par_iter_mut().enumerate().for_each(|(y_inv, rows)| {
             for x in 0..WIDTH {
                 let y = HEIGHT - y_inv;
@@ -56,7 +79,7 @@ impl Engine {
                 let v = 2.0 * (y as f32 - (0.5 * (HEIGHT as f32))) / HEIGHT as f32;
 
                 // array of vectors out of each pixel
-                rows[x] = Vec3::new(u, v, 1.0).normalized();
+                rows[x] = rot(Vec3::new(u, v, zdepth), sx, cx, sy, cy).normalized();
             }
         });
 
