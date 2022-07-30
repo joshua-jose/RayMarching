@@ -70,7 +70,9 @@ impl Engine {
 
         // move camera in direction we are facing
         self.camera_position += rot(rel_move, sx, cx, sy, cy);
-        let zdepth = 1.0 + (scroll as f32 / 10.0);
+        // start at 90 deg fov, change by 5 deg each scroll step
+        let fov_deg = 90.0 - (scroll as f32 * 5.0);
+        let zdepth = (fov_deg * 0.5).to_radians().tan().recip();
 
         directions.0.par_iter_mut().enumerate().for_each(|(y_inv, rows)| {
             for x in 0..WIDTH {
