@@ -1,0 +1,17 @@
+[package]
+name = "ray_marching"
+version = "0.2.0"
+authors = ["Josh <jose.josh04@gmail.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mimalloc = { version = "0.1.17", default-features = false }
+image = "0.24.3"
+rayon = "1.5.3"
+
+[profile.release]
+codegen-units = 1
+panic = "abort"
+debug = true
